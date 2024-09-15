@@ -13,72 +13,75 @@ using CSV
 using BlackBoxOptim
 using JLD2
 
+prefix = "../"
+
 ##Preprocessing routines
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\Big2SmallLambda.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\CeleritySubSurface.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\SingleUH.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\SingleNormalUH.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\LayerEstimation.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\PyrAreas.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\GrWPoint.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\RiverPoint.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\TemperatureVector.jl")
+include(prefix * "DDDFunctions/Big2SmallLambda.jl")
+include(prefix * "DDDFunctions/CeleritySubSurface.jl")
+include(prefix * "DDDFunctions/SingleUH.jl")
+include(prefix * "DDDFunctions/SingleNormalUH.jl")
+include(prefix * "DDDFunctions/LayerEstimation.jl")
+include(prefix * "DDDFunctions/PyrAreas.jl")
+include(prefix * "DDDFunctions/GrWPoint.jl")
+include(prefix * "DDDFunctions/RiverPoint.jl")
+include(prefix * "DDDFunctions/TemperatureVector.jl")
 
 ##EB and Snow Routines
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\NedbEBGlac_debug04072022.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\SnowpackTemp.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\TempstartUpdate.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\SmeltEBGlac_debug04072022.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\CloudCoverGlac_debug04072022.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\TssDewpoint.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\SolradTransAlbedoper_hrs_debug04072022.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\LongWaveRad_debug04072022.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\SensibleLatHeat_debug04072022.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\AlbedoUEB_debug04072022.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\GroundPrecCC.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\SnowGamma.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\Varc.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\NewSnowDensityEB.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\NewSnowSDEB.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\DensityAge.jl")
+include(prefix * "DDDFunctions/NedbEBGlac_debug04072022.jl")
+include(prefix * "DDDFunctions/SnowpackTemp.jl")
+include(prefix * "DDDFunctions/TempstartUpdate.jl")
+include(prefix * "DDDFunctions/SmeltEBGlac_debug04072022.jl")
+include(prefix * "DDDFunctions/CloudCoverGlac_debug04072022.jl")
+include(prefix * "DDDFunctions/TssDewpoint.jl")
+include(prefix * "DDDFunctions/SolradTransAlbedoper_hrs_debug04072022.jl")
+include(prefix * "DDDFunctions/LongWaveRad_debug04072022.jl")
+include(prefix * "DDDFunctions/SensibleLatHeat_debug04072022.jl")
+include(prefix * "DDDFunctions/AlbedoUEB_debug04072022.jl")
+include(prefix * "DDDFunctions/GroundPrecCC.jl")
+include(prefix * "DDDFunctions/SnowGamma.jl")
+include(prefix * "DDDFunctions/Varc.jl")
+include(prefix * "DDDFunctions/NewSnowDensityEB.jl")
+include(prefix * "DDDFunctions/NewSnowSDEB.jl")
+include(prefix * "DDDFunctions/DensityAge.jl")
 
 #Subsurface and Evaporation routines
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\LayerCapacityUpdate.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\PotentialEvapPT.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\UnsaturatedEvapEB.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\LayerEvap.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\UnsaturatedExEvap.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\WetlandsEB.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\GrvInputDistributionICap2022.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\OFICap.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\LayerUpdate.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\BogLayerUpdate.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\RiverUpdate.jl")
+include(prefix * "DDDFunctions/LayerCapacityUpdate.jl")
+include(prefix * "DDDFunctions/PotentialEvapPT.jl")
+include(prefix * "DDDFunctions/UnsaturatedEvapEB.jl")
+include(prefix * "DDDFunctions/LayerEvap.jl")
+include(prefix * "DDDFunctions/UnsaturatedExEvap.jl")
+include(prefix * "DDDFunctions/WetlandsEB.jl")
+include(prefix * "DDDFunctions/GrvInputDistributionICap2022.jl")
+include(prefix * "DDDFunctions/OFICap.jl")
+include(prefix * "DDDFunctions/LayerUpdate.jl")
+include(prefix * "DDDFunctions/BogLayerUpdate.jl")
+include(prefix * "DDDFunctions/RiverUpdate.jl")
 ## Overland Flow routine
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\OverlandFlowDynamicDD.jl")
+include(prefix * "DDDFunctions/OverlandFlowDynamicDD.jl")
 ## Efficiency criteria
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\NSEJM.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\KGEJM.jl")
+include(prefix * "DDDFunctions/NSEJM.jl")
+include(prefix * "DDDFunctions/KGEJM.jl")
 # Model Module
-#include("F:\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\DDDUrbanFunc.jl")
-include("\\\\nve.no\\fil\\h\\HB\\HB-modellering\\DDDtestbenk\\DDD_Julia\\DDDFunctions\\DDDAllTerrain22012024.jl")
+#include("F:/HB/HB-modellering/DDDtestbenk/DDD_Julia/DDDFunctions/DDDUrbanFunc.jl")
+include(prefix * "DDDFunctions/DDDAllTerrain22012024.jl")
 ########################################################################################
 
 catchment = "56.1"  # stationnumber
+inputPrefix = "./input/"
+outputPrefix = "./output/"
+parameterPrefix = "./parameter/"
 
 TR = "5min"         # this is just a marker for naming files, does NOT set the temporal resolution
 
-ptqfile = string("\\\\nve.no\\fil\\h\\HM\\Interne Prosjekter\\UrbanDesignFlom\\inndata\\Sandsli\\S1_",
-    catchment,"_",TR,"_ptq_kal.csv") 
+ptqfile = string(inputPrefix, "S1_", catchment, "_", TR, "_ptq_kal.csv")
 
-r2fil = string("\\\\nve.no\\fil\\h\\HM\\Interne Prosjekter\\UrbanDesignFlom\\utdata\\Sandsli\\r2_",
-    catchment,"_",TR,"_kal.csv")
+r2fil = string(outputPrefix, "r2_", catchment, "_", TR, "_kal.csv")
 
-utfile  = string("\\\\nve.no\\fil\\h\\HM\\Interne Prosjekter\\UrbanDesignFlom\\utdata\\Sandsli\\simres_",
-    catchment,"_",TR,"_kal_DDDv2.csv")  
+utfile  = string(outputPrefix, "simres_", catchment, "_", TR, "_kal_DDDv2.csv")
 
-paramfile = string("\\\\nve.no\\fil\\h\\HM\\Interne Prosjekter\\UrbanDesignFlom\\DDDurbanParameters\\",
-    catchment,"\\ParDDDv2_",catchment,"_",TR,".csv")
+paramfile = string(parameterPrefix, "ParDDDv2_", catchment, "_", TR, ".csv")
+
+println(ptqfile, "\n", r2fil, "\n", utfile, "\n", paramfile)
 
 spinup = (31*4) #days used to spin up the model. 
 
