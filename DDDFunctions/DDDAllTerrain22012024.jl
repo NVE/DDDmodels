@@ -289,10 +289,10 @@ swgt[2,1:hson] .= 0.1   # 1 .* elevarea/(totarea)          # sums to 1, correcte
 for Lst in 1:Lty
     k[Lst,1:NoL] = CeleritySubSurface(NoL, Gshape, Gscale, Ltymid[Lst], Timeresinsec) # Celerity of subsurface (and overland) flow
    if(Lst==1)
-    k[Lst,1] = OFVP  # P m/s Holden et al. WRR,2008,  # Overland flow celerites P
+    k[Lst,1] = k[Lst,1]*2   #03.07.2025 Double the original profile estimate due to equifinality, ECCO result #OFVP  # P m/s Holden et al. WRR,2008,  # Overland flow celerites P
    end
    if(Lst==2)
-    k[Lst,1] = OFVIP # IP, Sedyowati et al. 2017      # Overland flow celerites IP
+    k[Lst,1] = k[Lst,1]*2   #03.07.2025 Double the original profile estimate due to equifinality, ECCO result #OFVIP # IP, Sedyowati et al. 2017      # Overland flow celerites IP
    end 
 end
 
@@ -447,7 +447,7 @@ for i in startsim:days
 
   dato = Dates.DateTime(ptqinn.yr[i],ptqinn.mnt[i], ptqinn.day[i], ptqinn.hr[i],ptqinn.min[i]) #date
   #println(i," ",dato)      
-        
+         
   hr = ptqinn.hr[i] 
   DN = Dates.dayofyear(dato)           #daynumber        
   
@@ -733,12 +733,12 @@ for i in startsim:days
   #summing up groundwater states
     for Lst in 1:Lty
       if(Lst == 1)
-         lyrs[Lst] = sum(LayersP)
-         subsurface[Lst] = sum(LayersP[2:5,1:antHorlag[1]]) # gives the sum of layers after todays runoff has taken place
+         lyrs[Lst] = sum(LayersP)                           # Todays precip is included, but ex todays runoff
+         subsurface[Lst] = sum(LayersP[2:NoL,1:antHorlag[1]]) # gives the sum of layers after todays runoff has taken place
       end
       if(Lst==2)
          lyrs[Lst] = sum(LayersIP)
-         subsurface[Lst] = sum(LayersIP[2:5,1:antHorlag[2]])
+         subsurface[Lst] = sum(LayersIP[2:NoL,1:antHorlag[2]])
       end
     end
   
@@ -823,7 +823,7 @@ for i in startsim:days
    #WBIP = (SIPinn + RinnIP) - (lyrs[2] + sum(QRivxIP)*(Timeresinsec*1000/area[2]))   #mm  last term inludes discharge and storage in rivernetwork                                         
    #println("WBIP = ", WBIP," Total inn IP= ",SIPinn)  
 ##  Water balance before and after runoff calculations ok 20.06.2023. Also check that precip-(evap + sm + outx) == 0
-
+   
   if (kal==0)
   #Assigning outdata to vector, one vector for each timestep
    simresult[i, 1:5] = [ptqinn.yr[i],ptqinn.mnt[i],ptqinn.day[i],ptqinn.hr[i],ptqinn.min[i]]
@@ -880,12 +880,13 @@ wwater = 1.0*persons*(140.0 + 42.0)/(86400.0*1000.0)# norsk vann equivalent use 
  meanobs = mean(ptqinn.q[skillstart:days2])
 
 # Computing skillscores NSE, kge, bias
- KGE = (kge((wwater .+ qberegn[skillstart:days2]),ptqinn.q[skillstart:days2]))
+ KGE, beta = (kge((wwater .+ qberegn[skillstart:days2]),ptqinn.q[skillstart:days2]))
  NSE = (nse((wwater .+ qberegn[skillstart:days2]),ptqinn.q[skillstart:days2]))
- bias = (meansim/meanobs)
+ bias = beta #(meansim/meanobs)
+#bias = (meansim/meanobs) 
 
 #Recall, tprm is the parameter vector
-#                        u,        pro,         TX,      PCritFlux,         OFP,        GshInt,   GscInt, persons
+#                                       u,        pro,        TX,      PCritFlux,         OFP,        GshInt,   GscInt, persons
 dfy = DataFrame(A=NSE,B=KGE,C=bias,D=tprm[1],E=tprm[2],F=tprm[3],G=tprm[4], H=tprm[5], II =tprm[6],IJ=tprm[7],
     JJ=tprm[8], KJ= tprm[9], LJ= tprm[10])
 CSV.write(r2fil,DataFrame(dfy), delim = ';', header=false, append = true)
