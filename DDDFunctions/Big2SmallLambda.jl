@@ -136,11 +136,9 @@ for lag in 1:10 #Loop for 10 Layers
 end #loop for levels
 
 #Estimate parameters for trlam (lambda)
-dx = trlam
-dy = arg 
-     @.modelgamma(x,p) = quantile(Gamma(p[1],p[2]),x)
-     p0=[GshInt*0.5, 2*GscInt]
-     gammafit = curve_fit(modelgamma,dy, dx , p0)
+modelgamma(x, p) = quantile.(Gamma(p[1], p[2]), x)
+gammafit = curve_fit(modelgamma, arg, trlam, [GshInt*0.5, 2*GscInt],
+                     autodiff=AutoFiniteDiff(fdjtype=Val(:central)))
 
 #using Plots
 #plot(quantile.(Gamma(coef(gammafit)[1],coef(gammafit)[2]),dy),dy)
