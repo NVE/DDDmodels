@@ -5,7 +5,12 @@ using CSV
 using Random
 using Dates
 using DataFrames
+using Glob
 using BlackBoxOptim
+using Plots
+default(legend=false)
+gr() # remove to plot interactively
+ENV["GKSwstype"] = "100" # remove to plot interactively
 include(joinpath(dirname(@__DIR__), "DDDFunctions", "DDDAllTerrain22012024.jl"))
 
 Random.seed!(0)
@@ -22,21 +27,22 @@ Random.seed!(0)
 end
 
 mutable struct ParameterSet
-    positions::Vector{UInt8}
-    values::DataFrame
+    names::Vector{String}
+    values::Vector{Float64}
+    positions_hyd::Vector{UInt8}
     function ParameterSet(path_in::String)
-        positions::Vector{UInt8} = [20, 21, 22, 18, 19, 33, 34, 35, 36, 37]
-        values = CSV.read(path_in, DataFrame, header=["Name", "val"], delim=';')
-        new(positions, values)
+        raw = CSV.read(path_in, DataFrame, header=["Name", "val"], delim=';')
+        positions_hyd::Vector{UInt8} = [20, 21, 22, 18, 19, 33, 34, 35, 36, 37]
+        new(raw[:,"Name"], raw[:,"val"], positions_hyd)
     end
 end
 
 function getHydrologicParameters(parameters::ParameterSet)::Vector{Float64}
-    [parameters.values[i,"val"] for i in parameters.positions]
+    parameters.values[parameters.positions_hyd]
 end
 
 function setHydrologicParameters!(parameters::ParameterSet, hydrologic::Vector{Float64})
-    parameters.values[parameters.positions,"val"] .= hydrologic
+    parameters.values[parameters.positions_hyd] .= hydrologic
 end
 
 function pathsPTQ(id::String, settings::SettingsCalibration)
@@ -61,22 +67,75 @@ function checkInput(id::String, settings::SettingsCalibration)
     Dict(vcat(["id" => id],[k => isfile(p) for (k, p) in paths]))
 end
 
-function runDDD(paths_ptq::Dict{String,String}, params_hyd::Vector{Float64}, params_all::DataFrame, spinup::Int, dir_out::String, txt::String)
+function runDDD(paths_ptq::Dict{String,String}, params_hyd::Vector{Float64}, params_all::Vector{Float64}, spinup::Int, dir_out::String, txt::String)
     print("\tRuns with ", txt)
     kge_score = Dict(k => NaN for k in eachindex(paths_ptq))
     Threads.@threads for p in collect(eachindex(paths_ptq))
         path_out_series = joinpath(dir_out, "series_$(p).csv")
         path_out_r2 = joinpath(dir_out, "r2_$(p).csv")
-        kge_score[p] = DDDAllTerrain(fill(NaN, 2), 1, params_hyd, params_all, paths_ptq[p], path_out_series, path_out_r2, 0, 0, 0, spinup, true)[3]
+        ptq_in = loadPTQ(paths_ptq[p])
+        kge_score[p] = ddd(ptq_in, 1, params_hyd, params_all, path_out_series, path_out_r2, 0, 0, 0, spinup, true)[3]
     end
     println(" -> KGE (period): ", join(["$(round(v, digits=4)) ($k)" for (k, v) in kge_score], ", "))
 end
 
-function makeEvaluator(parameters_all::DataFrame, path_ptq::String, spinup::Int, path_r2::String)
+function makeEvaluator(ptq_in::DataFrame, parameters_all::Vector{Float64}, spinup::Int, path_r2::String)
     function wrapper(hydpar::Vector{Float64})
-        kge_score = DDDAllTerrain(fill(NaN, 2), 1, hydpar, parameters_all, path_ptq, "", path_r2, 0, 0, 1, spinup, true)[3]
+        kge_score = ddd(ptq_in, 1, hydpar, parameters_all, "", path_r2, 0, 0, 1, spinup, true)[3]
         return 1. - kge_score
     end
+end
+
+function readCatchmentList(path)
+    catchments = readlines(path) .|> strip .|> String
+    filter(l -> !isempty(l) && !startswith(l, "#"), catchments)
+end
+
+function plotParameters(id::String, pct_keep::Int, dir_fig::String, settings::SettingsCalibration)
+    # 1. Load parameter ranges
+    bounds_all = convert(Dict{String,Dict{String,Vector{Float64}}}, TOML.parsefile(settings.path_parameter_ranges))
+    if haskey(bounds_all, id)
+        error("Not implemented yet: parameter ranges for individual catchments")
+    else
+        bounds_local = bounds_all["default"]
+    end
+    # 2. Identify actually calibrated parameters
+    names_par = [k for (k, r) in bounds_local if r[1] != r[2]]
+    num_par = length(names_par)
+    # 3. Load parameter sets and KGE values, and keep the best as per pct_keep
+    paths_r2 = glob(joinpath(joinpath(settings.root_output, id, "calibrated"), "log", "r2_*.csv"))
+    filter!(p -> filesize(p) > 0, paths_r2)
+    header = vcat(["NSE", "KGE", "Bias"], ["u", "pro", "TX", "pkorr", "skorr", "GscInt", "OFVP", "OFVIP", "Lv", "Rv"])
+    df = sort(CSV.read(paths_r2, DataFrame, header=header)[:,vcat(["KGE"], names_par)], "KGE")
+    df = df[end-Int(floor(nrow(df) * pct_keep/100)):end,:]
+    mm_KGE = round.(extrema(df[:,"KGE"]), digits=4)
+    # 4. Matrix plots
+    plots = Matrix{Plots.Plot}(undef, num_par, num_par);
+    for c in 1:num_par
+        p_x = names_par[c]
+        for r in 1:num_par
+            xt = r==num_par ? bounds_local[p_x] : false
+            xl = r==num_par ? p_x : ""
+            if c == r
+                plots[r,c] = scatter(df[1:end-1,p_x], df[1:end-1,"KGE"], color="black", msw=0, grid=false,
+                                     xticks=xt, yticks=false, xlim=bounds_local[p_x], xlabel=xl, ymirror=true);
+                scatter!(plots[r,c], [df[end,p_x]], [df[end,"KGE"]], color="red", msw=0);
+            elseif c < r
+                p_y = names_par[r]
+                yt = c==1 ? bounds_local[p_y] : false
+                yl = c==1 ? p_y : ""
+                plots[r,c] = scatter(df[:,p_x], df[:,p_y], marker_z=df[:,"KGE"], color=:viridis, msw=0, grid=false,
+                                     xticks=xt, yticks=yt, xlim=bounds_local[p_x], ylim=bounds_local[p_y],
+                                     xlabel=xl, ylabel=yl);
+                scatter!(plots[r,c], [df[end,p_x]], [df[end,p_y]], color="red", marker=:cross, msw=0.5);
+            else
+                plots[r,c] = plot(showaxis=false, grid=false, framestyle=:none, background_color=:white, border=:none);
+            end
+        end
+    end
+    fig = plot(permutedims(plots, (2, 1))..., layout=(num_par, num_par), size=(1000, 1000),
+               plot_title="$(id): best $(pct_keep)% KGE ∈ [$(mm_KGE[1]), $(mm_KGE[2])]");
+    savefig(fig, joinpath(dir_fig, "KGE_parameters_$(id).pdf")) # to display interactively: gui(fig)
 end
 
 function calibrateMultipleCatchments(path_toml::String)
@@ -84,8 +143,7 @@ function calibrateMultipleCatchments(path_toml::String)
     settings = from_toml(SettingsCalibration, path_toml)
     num_threads = max(Threads.nthreads() - 1, 1)
     # Load catchment list and keep only those not done yet
-    catchments = readlines(settings.path_catchments_list)
-    filter!(line -> !isempty(strip(line)) && !startswith(strip(line), "#"), catchments)
+    catchments = readCatchmentList(settings.path_catchments_list)
     num_tot = length(catchments)
     filter!(id -> !isfile(pathDone(id, settings)), catchments)
     if num_tot > length(catchments)
@@ -123,7 +181,8 @@ function calibrateMultipleCatchments(path_toml::String)
         dir_out_cal = mkpath(joinpath(dir_out, "calibrated"))
         dir_log_cal = mkpath(joinpath(dir_out_cal, "log"))
         template_path_r2 = joinpath(dir_log_cal, "r2.csv")
-        evaluator = makeEvaluator(parameters.values, paths_ptq["calibration"], settings.spinup, template_path_r2)
+        ptq_in = loadPTQ(paths_ptq["calibration"])
+        evaluator = makeEvaluator(ptq_in, parameters.values, settings.spinup, template_path_r2)
         print("\tCalibration started on ", Dates.format(now(), "yyyy-mm-dd HH:MM"))
         res = redirect_stdio(stdout=devnull, stderr=devnull) do
             bboptimize(evaluator; SearchRange=bounds_local, MaxSteps=settings.steps_max, TraceMode=:silent, SaveTrace=true, NThreads=num_threads)
@@ -133,7 +192,8 @@ function calibrateMultipleCatchments(path_toml::String)
         ## Write calibrated parameters to file
         setHydrologicParameters!(parameters, best_candidate(res))
         CSV.write(joinpath(dir_out_cal, "parameters.csv"), parameters.values, delim=';', writeheader=false)
-        ## Merge calibration log files (1 r2fil per thread): TO DO (function in DDDAll... to rename r2fil and reuse it here)!
+        ## Parameter plots
+        plotParameters(id, 50, dir_out, settings)
         ## Run DDD with calibrated parameters
         runDDD(paths_ptq, getHydrologicParameters(parameters), parameters.values, settings.spinup, dir_out_cal, "calibrated parameters")
         ## Create empty file ("done") to be used in case of restart to skip this catchment
@@ -141,11 +201,12 @@ function calibrateMultipleCatchments(path_toml::String)
     end
 end
 
-function runSingleCatchment(path_toml::String, id::String, period::String)
+function inputSingleCatchmentRun(path_toml::String, id::String, period::String)
     # Load settings from TOML file
     settings = from_toml(SettingsCalibration, path_toml)
-    # Path to PTQ input
+    # PTQ input
     path_ptq = pathsPTQ(id, settings)[period]
+    ptq_in = loadPTQ(path_ptq)
     # Load initial parameters
     path_inipar = replace(settings.template_path_inipar, "<CATCHMENT>" => id)
     parameters = ParameterSet(path_inipar)
@@ -153,7 +214,7 @@ function runSingleCatchment(path_toml::String, id::String, period::String)
     dir_out = mkpath(joinpath(settings.root_output, "single_runs", id))
     path_out_series = joinpath(dir_out, "series_$(id)_$(period).csv")
     path_out_r2 = joinpath(dir_out, "r2_$(id)_$(period).csv")
-    println("Output in ", dir_out)
-    # Run DDD
-    DDDAllTerrain(fill(NaN, 2), 1, getHydrologicParameters(parameters), parameters.values, path_ptq, path_out_series, path_out_r2, 0, 0, 0, settings.spinup, true)
+    println("Input prepared for single run with output in ", dir_out)
+    # Return input required for running DDD
+    return (ptq_in, 1, getHydrologicParameters(parameters), parameters.values, path_out_series, path_out_r2, 0, 0, 0, settings.spinup, true)
 end

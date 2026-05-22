@@ -83,8 +83,21 @@ include("KGE_ths.jl")
 
 function DDDAllTerrain(Gpar::Vector{Float64}, startsim::Int, tprm::Vector{Float64}, prm::DataFrame, ptqfile::String, utfile::String,
                        r2fil::String, modstate::Int, savestate::Int, kal::Int, spinuptime::Int, silent::Bool=false)
+    # Read input file (ptq): time steps and elevation zones
+    ptqinn = loadPTQ(ptqfile)
+    # Run DDD
+    ddd(ptqinn, startsim, tprm, prm[:,"val"], utfile, r2fil, modstate, savestate, kal, spinuptime, silent)
+end
 
-# TO DO: remove Gpar argument which is not used
+
+function loadPTQ(path::String)
+    CSV.read(path, DataFrame, header=["yr","mnt","day","hr","min","p01","p02","p03","p04","p05","p06","p07","p08","p09","p10",
+            "t01","t02","t03","t04","t05","t06","t07","t08","t09","t10","q"])
+end
+
+
+function ddd(ptqinn::DataFrame, startsim::Int, tprm::Vector{Float64}, prm::Vector{Float64},
+             utfile::String, r2fil::String, modstate::Int, savestate::Int, kal::Int, spinuptime::Int, silent::Bool)
 DDA = 6  # number of landscape types with distance distribution
 # DDA=1 Permeable (P) areas
 # DDA=2 ImPermeable (IP) areas
@@ -174,81 +187,81 @@ hfelt = zeros(10)
 
 ########################Reading parameters#########################################################
 #Hyposgraphic curve and locations
-hfelt[1] = prm.val[5]+(prm.val[6]-prm.val[5])/2.0
-hfelt[2] = prm.val[6]+(prm.val[7]-prm.val[6])/2.0
-hfelt[3] = prm.val[7]+(prm.val[8]-prm.val[7])/2.0
-hfelt[4] = prm.val[8]+(prm.val[9]-prm.val[8])/2.0
-hfelt[5] = prm.val[9]+(prm.val[10]-prm.val[9])/2.0
-hfelt[6] = prm.val[10]+(prm.val[11]-prm.val[10])/2.0
-hfelt[7] = prm.val[11]+(prm.val[12]-prm.val[11])/2.0
-hfelt[8] = prm.val[12]+(prm.val[13]-prm.val[12])/2.0
-hfelt[9] = prm.val[13]+(prm.val[14]-prm.val[13])/2.0
-hfelt[10] = prm.val[14]+(prm.val[15]-prm.val[14])/2.0
+hfelt[1] = prm[5]+(prm[6]-prm[5])/2.0
+hfelt[2] = prm[6]+(prm[7]-prm[6])/2.0
+hfelt[3] = prm[7]+(prm[8]-prm[7])/2.0
+hfelt[4] = prm[8]+(prm[9]-prm[8])/2.0
+hfelt[5] = prm[9]+(prm[10]-prm[9])/2.0
+hfelt[6] = prm[10]+(prm[11]-prm[10])/2.0
+hfelt[7] = prm[11]+(prm[12]-prm[11])/2.0
+hfelt[8] = prm[12]+(prm[13]-prm[12])/2.0
+hfelt[9] = prm[13]+(prm[14]-prm[13])/2.0
+hfelt[10] = prm[14]+(prm[15]-prm[14])/2.0
 
-phi = prm.val[16]*pi/180  #converts Lat degrees to radians lat
-thi = prm.val[17]*pi/180  #converts Lon degrees to radians Lon 
+phi = prm[16]*pi/180  #converts Lat degrees to radians lat
+thi = prm[17]*pi/180  #converts Lon degrees to radians Lon 
 
 #Meteorological corrections
-pkorr = tprm[4] #prm.val[18]         # Met corrections rain
-skorr = tprm[5] #prm.val[19]                  # Met corrections snow
-u = tprm[1] #prm.val[20]             # mean vind velocity [m/s]
+pkorr = tprm[4] #prm[18]         # Met corrections rain
+skorr = tprm[5] #prm[19]                  # Met corrections snow
+u = tprm[1] #prm[20]             # mean vind velocity [m/s]
 
 #Snow parameters
-pro = tprm[2] #prm.val[21]           # [fraction] liquid water content in snow
-TX = tprm[3] #prm.val[22]            # Threshold temp for rain/snow
-a0[1:Lty] .= prm.val[23:24]          # Alfa null in snofall unit distribution P, IP
-d[1:Lty] .= prm.val[25:26]           # Decorrelation length (Measured in n) for precipitation P, IP
+pro = tprm[2] #prm[21]           # [fraction] liquid water content in snow
+TX = tprm[3] #prm[22]            # Threshold temp for rain/snow
+a0[1:Lty] .= prm[23:24]          # Alfa null in snofall unit distribution P, IP
+d[1:Lty] .= prm[25:26]           # Decorrelation length (Measured in n) for precipitation P, IP
 
 # Misc.
-Timeresinsec = prm.val[27]           # temporal resolution of simulations, in seconds
-MAD = prm.val[28]                    # mean annual discharge
-totarea = prm.val[29]                # Total area of catchment in m2
-NoL = Int(prm.val[30])                # Number of layers in subsurface including OF level
-R = prm.val[31]                  # soil moisture content/100 for field capacity of soils 
+Timeresinsec = prm[27]           # temporal resolution of simulations, in seconds
+MAD = prm[28]                    # mean annual discharge
+totarea = prm[29]                # Total area of catchment in m2
+NoL = Int(prm[30])                # Number of layers in subsurface including OF level
+R = prm[31]                  # soil moisture content/100 for field capacity of soils 
 
 #Celerities, subsurface and conduits
-GshInt = prm.val[32]        # shapeparameter saturation Capital lambda
-GscInt = tprm[6] #prm.val[33]        # scaleparameter saturation Capital lambda
+GshInt = prm[32]        # shapeparameter saturation Capital lambda
+GscInt = tprm[6] #prm[33]        # scaleparameter saturation Capital lambda
 Gshape, Gscale = Big2SmallLambda(GshInt, GscInt) # Coverting integrated celerity to layers 
-OFVP  = tprm[7]  #prm.val[34]         # Overland flow velocity P
-OFVIP = tprm[8]  #prm.val[35]                  # Overland flow velocity IP
-Lv = tprm[9]     #prm.val[36]                     # lake celrity [m/s] Can it be fixed?, 0.01 is popular
-rv = tprm[10]    #prm.val[37]                     # celerity of water in river/conduits network    
+OFVP  = tprm[7]  #prm[34]         # Overland flow velocity P
+OFVIP = tprm[8]  #prm[35]                  # Overland flow velocity IP
+Lv = tprm[9]     #prm[36]                     # lake celrity [m/s] Can it be fixed?, 0.01 is popular
+rv = tprm[10]    #prm[37]                     # celerity of water in river/conduits network    
 
 #Distance distributions Lty
-Ltyfrac[1:5]  .= prm.val[38:42]  # areal fraction (AF) of permeable, impermeable, wetlands, lakes(effective) and glaciers. Not RN 
-Ltymax[1:3] .= prm.val[43:45]    # Max. dist permeable, impermeable, wetlands, lakes(effective), glaciers and RN 
-Ltymax[5:DDA] .= prm.val[46:47]    # Max. dist permeable, impermeable, wetlands, lakes(effective), glaciers and RN 
-Ltymid[1:3] .= prm.val[48:50]    # Mean permeable, impermeable, wetlands, lakes(effective), glaciers and RN 
-Ltymid[5:DDA] .= prm.val[51:52]    # Mean permeable, impermeable, wetlands, lakes(effective), glaciers and RN 
-Ltystd[5:DDA] .= prm.val[53:54]    # Std. dev. permeable, impermeable, wetlands, lakes(effective), glaciers and RN 
-Ltyz[1:3] .= prm.val[55:57]      # frac zero dist from RN, permeable, impermeable, wetlands, lakes(effective), glaciers and RN
+Ltyfrac[1:5]  .= prm[38:42]  # areal fraction (AF) of permeable, impermeable, wetlands, lakes(effective) and glaciers. Not RN 
+Ltymax[1:3] .= prm[43:45]    # Max. dist permeable, impermeable, wetlands, lakes(effective), glaciers and RN 
+Ltymax[5:DDA] .= prm[46:47]    # Max. dist permeable, impermeable, wetlands, lakes(effective), glaciers and RN 
+Ltymid[1:3] .= prm[48:50]    # Mean permeable, impermeable, wetlands, lakes(effective), glaciers and RN 
+Ltymid[5:DDA] .= prm[51:52]    # Mean permeable, impermeable, wetlands, lakes(effective), glaciers and RN 
+Ltystd[5:DDA] .= prm[53:54]    # Std. dev. permeable, impermeable, wetlands, lakes(effective), glaciers and RN 
+Ltyz[1:3] .= prm[55:57]      # frac zero dist from RN, permeable, impermeable, wetlands, lakes(effective), glaciers and RN
 # Glacierfractions of elevation zones
-g1    = prm.val[58]       # areal fraction of glaciers in first elevation zone
-g2    = prm.val[59]
-g3    = prm.val[60]
-g4    = prm.val[61]
-g5    = prm.val[62]
-g6    = prm.val[63]
-g7    = prm.val[64]
-g8    = prm.val[65]
-g9    = prm.val[66]
-g10   = prm.val[67]
+g1    = prm[58]       # areal fraction of glaciers in first elevation zone
+g2    = prm[59]
+g3    = prm[60]
+g4    = prm[61]
+g5    = prm[62]
+g6    = prm[63]
+g7    = prm[64]
+g8    = prm[65]
+g9    = prm[66]
+g10   = prm[67]
 
-meandailyP = prm.val[68]   # daily mean value precipitation
-meandailyT = prm.val[69]   # daily mean value temperature
-snfjell = 100.0*prm.val[70]# in parameterfile as fraction for MAD estimation, NOT for impermeble surfaces
-persons = prm.val[71]
+meandailyP = prm[68]   # daily mean value precipitation
+meandailyT = prm[69]   # daily mean value temperature
+snfjell = 100.0*prm[70]# in parameterfile as fraction for MAD estimation, NOT for impermeble surfaces
+persons = prm[71]
     
 #Hardcoded infiltration capacity
 #ICap[1] = (1000)*(GshInt*GscInt*Ltymid[1]/Timeresinsec) # Infiltration capacity for Permeable[1] [mm/s]. Equals mean Subsurface velocity
 #ICap[2] = ICap[1]*0.001  # Infiltration capacity for ImPermeable[2] in
 
 #provided by parameterfile
-ICap[1] = prm.val[72]/3600.0#  Infiltration capacity for Permeable[1] Input from parameterfile is in mm/hour. we here transform to [mm/s]and later on to [mm/Timeresinsec] 
-ICap[2] = prm.val[73]/3600.0# # Infiltration capacity for ImPermeable[2]  previously as ICap[1]*0.002  
+ICap[1] = prm[72]/3600.0#  Infiltration capacity for Permeable[1] Input from parameterfile is in mm/hour. we here transform to [mm/s]and later on to [mm/Timeresinsec] 
+ICap[2] = prm[73]/3600.0# # Infiltration capacity for ImPermeable[2]  previously as ICap[1]*0.002  
 
-CritFlux[1:Lty] .= prm.val[74:75] # Critical flux estimates. Sensitivity  unknown....
+CritFlux[1:Lty] .= prm[74:75] # Critical flux estimates. Sensitivity  unknown....
 
 ################################### End of reading parameters ############################################
 
@@ -267,10 +280,6 @@ if(Ltyfrac[2] == 0.0)
   Lty = 1
 end 
 
-#reading input file (ptq)
-ptqinn = CSV.read(ptqfile, DataFrame, header=["yr","mnt","day","hr","min","p01","p02","p03","p04","p05","p06","p07","p08","p09","p10",
-        "t01","t02","t03","t04","t05","t06","t07","t08","t09","t10","q"])    # reading ptq data, elevation zones
-                                                                                                                                
 days = Int(length(ptqinn.yr))    # Length of timeseries
 
 MAD2 = exp(-4.59 + 1.135*log(meandailyP)+0.97*log(totarea/1000000)-0.0603*meandailyT + 0.053*log(snfjell)-0.00014*hfelt[5])  # R2 = 0.99, Area in km2, Snfjell in fraction   

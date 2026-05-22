@@ -9,9 +9,11 @@ path_ptq = joinpath(dir_data, "ptq_12.70_2009-2024.csv")
 dir_out = mkpath(joinpath(dir_data, "output"))
 path_out_series = joinpath(dir_out, "output_series_12.70.csv")
 path_out_r2 = joinpath(dir_out, "output_r2_12.70.csv")
+# Load PTQ
+ptq_in = loadPTQ(path_ptq)
 # Run model
 println("Test output in ", dir_out)
-DDDAllTerrain(fill(NaN, 2), 1, getHydrologicParameters(parameters), parameters.values, path_ptq, path_out_series, path_out_r2, 0, 0, 0, 365, true)
+ddd(ptq_in, 1, getHydrologicParameters(parameters), parameters.values, path_out_series, path_out_r2, 0, 0, 0, 365, true)
 # Load output  and benchmark time series
 output = CSV.read(path_out_series, DataFrame)
 benchmark = CSV.read(joinpath(dir_data, "benchmark_series_12.70.csv"), DataFrame)

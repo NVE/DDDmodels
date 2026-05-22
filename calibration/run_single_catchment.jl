@@ -2,8 +2,11 @@
 # julia --project=.. run_single_catchment.jl settings/calibration_251120.toml 2.11 calibration
 include("calibration.jl")
 
+# Shell arguments
 @assert length(ARGS) == 3
 path_settings, id, period = ARGS
+# Load input
+input = inputSingleCatchmentRun(path_settings, id, period)
 #runSingleCatchment(path_settings, id, period)
 
 #using Profile
@@ -15,7 +18,7 @@ path_settings, id, period = ARGS
 #@code_warntype runSingleCatchment(path_settings, id, period)
 
 using BenchmarkTools
-@btime runSingleCatchment(path_settings, id, period)
+@btime ddd(input...)
 
 # ProfileView displays works in REPL and not script
 #include("calibration.jl")

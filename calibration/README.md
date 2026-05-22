@@ -65,17 +65,12 @@ catchment will be skipped.
 
 ## 5. Possible improvements
 
-0. Diagnostic plots for each catchment: time series, parameters, etc.
-1. Redefine DDDAll... as made up of 2 functions: f1 loading PTQ time series, and f2 doing the rest
-   taking PTQ series among its input. To calibrate a catchment, f1 would be called only once and
-   f2 would be iterated over by the search algorithm.
-2. Use TypedTables instead of DataFrames to read input from CSV files and to pass data to the model,
-   to ensure type stability (types of DataFrame columns are unknown a priori to the compiler)
-3. Specify which parameters should be calibrated and which have a fixed value in settings,
-   instead of using collapsed ranges, to reduce the formal number of parameters.
-4. Check that functions are type-stable to avoid performance losses.
-5. Profile DDD code to look for performance bottlenecks.
-6. Test if using views instead of slices improves performance by reducing memory allocations.
-7. Sensitivity analysis (e.g. [GlobalSensitivity.jl](https://docs.sciml.ai/GlobalSensitivity/stable/))
-8. Use julia 1.12 and [workspaces](https://pkgdocs.julialang.org/dev/creating-packages/#Test-specific-dependencies)
+- Test alternatives to DataFrames to ensure type stability (types of DataFrame columns are unknown a priori to the compiler)
+- Transpose data matrices so that loops over column indices are external
+- Specify which parameters should be calibrated and which have a fixed value in settings,
+  instead of using collapsed ranges, to reduce the formal number of parameters.
+- Check that functions are type-stable to avoid performance losses.
+- Profile DDD code to look for performance bottlenecks.
+- Sensitivity analysis (e.g. [GlobalSensitivity.jl](https://docs.sciml.ai/GlobalSensitivity/stable/))
+- Use julia 1.12 and [workspaces](https://pkgdocs.julialang.org/dev/creating-packages/#Test-specific-dependencies)
    to define test- and calibration-specific dependencies.
