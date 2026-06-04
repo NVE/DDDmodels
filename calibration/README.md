@@ -66,7 +66,9 @@ catchment will be skipped.
 ## 5. Possible improvements
 
 - Test alternatives to DataFrames to ensure type stability (types of DataFrame columns are unknown a priori to the compiler)
-- Transpose data matrices so that loops over column indices are external
+- Transpose data matrices so that loops over column indices are external:
+  * DDD loop over time, landscape and elevation (external to internal)
+  * time convolution loops over layer (external) and lag time (internal)
 - Specify which parameters should be calibrated and which have a fixed value in settings,
   instead of using collapsed ranges, to reduce the formal number of parameters.
 - Check that functions are type-stable to avoid performance losses.
