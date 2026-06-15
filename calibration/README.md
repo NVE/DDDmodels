@@ -65,14 +65,14 @@ catchment will be skipped.
 
 ## 5. Possible improvements
 
-- Test alternatives to DataFrames to ensure type stability (types of DataFrame columns are unknown a priori to the compiler)
 - Transpose data matrices so that loops over column indices are external:
   * DDD loop over time, landscape and elevation (external to internal)
   * time convolution loops over layer (external) and lag time (internal)
+- Test alternatives to DataFrames to ensure type stability (e.g. DimensionalData, TypedTables, TimeArrays)
+  or is it enough with function barrier on loading?
 - Specify which parameters should be calibrated and which have a fixed value in settings,
   instead of using collapsed ranges, to reduce the formal number of parameters.
 - Check that functions are type-stable to avoid performance losses.
-- Profile DDD code to look for performance bottlenecks.
 - Sensitivity analysis (e.g. [GlobalSensitivity.jl](https://docs.sciml.ai/GlobalSensitivity/stable/))
-- Use julia 1.12 and [workspaces](https://pkgdocs.julialang.org/dev/creating-packages/#Test-specific-dependencies)
+- Use [workspaces](https://pkgdocs.julialang.org/dev/creating-packages/#Test-specific-dependencies)
    to define test- and calibration-specific dependencies.

@@ -1,19 +1,19 @@
-using Configurations
 using Infiltrator
+using Configurations
 using TOML
 using CSV
 using Random
 using Dates
 using DataFrames
 using Glob
+using StaticArrays
+using OrderedCollections
 using BlackBoxOptim
 using Plots
 default(legend=false)
 gr() # remove to plot interactively
 ENV["GKSwstype"] = "100" # remove to plot interactively
 include(joinpath(dirname(@__DIR__), "DDDFunctions", "DDDAllTerrain22012024.jl"))
-
-Random.seed!(0)
 
 @option struct SettingsCalibration
     root_output::String
@@ -45,6 +45,10 @@ function setHydrologicParameters!(parameters::ParameterSet, hydrologic::Vector{F
     parameters.values[parameters.positions_hyd] .= hydrologic
 end
 
+function toCSV(parameters::ParameterSet, path::String)
+   CSV.write(path, zip(parameters.names, parameters.values), delim=';', writeheader=false)
+end
+
 function pathsPTQ(id::String, settings::SettingsCalibration)
     Dict(k => replace(settings.template_path_ptq, "<CATCHMENT>" => id, "<PERIOD>" => v) for (k, v) in settings.periods)
 end
@@ -67,6 +71,17 @@ function checkInput(id::String, settings::SettingsCalibration)
     Dict(vcat(["id" => id],[k => isfile(p) for (k, p) in paths]))
 end
 
+function loadParameterRanges(id::String, settings::SettingsCalibration)::OrderedDict{String,Tuple{Float64,Float64}}
+    names = ("u", "pro", "TX", "pkorr", "skorr", "GscInt", "OFVP", "OFVIP", "Lv", "Rv")
+    raw = TOML.parsefile(settings.path_parameter_ranges)
+    bounds = Dict(k => convert(Dict{String,SVector{2,Float64}}, d) for (k, d) in raw)
+    if haskey(bounds, id)
+        return OrderedDict(k => Tuple(k in keys(bounds[id]) ? bounds[id][k] : bounds["default"][k]) for k in names)
+    else
+        return OrderedDict(k => Tuple(bounds["default"][k]) for k in names)
+    end
+end
+
 function runDDD(paths_ptq::Dict{String,String}, params_hyd::Vector{Float64}, params_all::Vector{Float64}, spinup::Int, dir_out::String, txt::String)
     print("\tRuns with ", txt)
     kge_score = Dict(k => NaN for k in eachindex(paths_ptq))
@@ -74,6 +89,7 @@ function runDDD(paths_ptq::Dict{String,String}, params_hyd::Vector{Float64}, par
         path_out_series = joinpath(dir_out, "series_$(p).csv")
         path_out_r2 = joinpath(dir_out, "r2_$(p).csv")
         ptq_in = loadPTQ(paths_ptq[p])
+        Random.seed!(0)
         kge_score[p] = ddd(ptq_in, 1, params_hyd, params_all, path_out_series, path_out_r2, 0, 0, 0, spinup, true)[3]
     end
     println(" -> KGE (period): ", join(["$(round(v, digits=4)) ($k)" for (k, v) in kge_score], ", "))
@@ -81,6 +97,7 @@ end
 
 function makeEvaluator(ptq_in::DataFrame, parameters_all::Vector{Float64}, spinup::Int, path_r2::String)
     function wrapper(hydpar::Vector{Float64})
+        Random.seed!(0)
         kge_score = ddd(ptq_in, 1, hydpar, parameters_all, "", path_r2, 0, 0, 1, spinup, true)[3]
         return 1. - kge_score
     end
@@ -93,14 +110,9 @@ end
 
 function plotParameters(id::String, pct_keep::Int, dir_fig::String, settings::SettingsCalibration)
     # 1. Load parameter ranges
-    bounds_all = convert(Dict{String,Dict{String,Vector{Float64}}}, TOML.parsefile(settings.path_parameter_ranges))
-    if haskey(bounds_all, id)
-        error("Not implemented yet: parameter ranges for individual catchments")
-    else
-        bounds_local = bounds_all["default"]
-    end
+    bounds = loadParameterRanges(id, settings)
     # 2. Identify actually calibrated parameters
-    names_par = [k for (k, r) in bounds_local if r[1] != r[2]]
+    names_par = [k for (k, r) in bounds if r[1] != r[2]]
     num_par = length(names_par)
     # 3. Load parameter sets and KGE values, and keep the best as per pct_keep
     paths_r2 = glob(joinpath(joinpath(settings.root_output, id, "calibrated"), "log", "r2_*.csv"))
@@ -114,18 +126,18 @@ function plotParameters(id::String, pct_keep::Int, dir_fig::String, settings::Se
     for c in 1:num_par
         p_x = names_par[c]
         for r in 1:num_par
-            xt = r==num_par ? bounds_local[p_x] : false
+            xt = r==num_par ? bounds[p_x] : false
             xl = r==num_par ? p_x : ""
             if c == r
                 plots[r,c] = scatter(df[1:end-1,p_x], df[1:end-1,"KGE"], color="black", msw=0, grid=false,
-                                     xticks=xt, yticks=false, xlim=bounds_local[p_x], xlabel=xl, ymirror=true);
+                                     xticks=xt, yticks=false, xlim=bounds[p_x], xlabel=xl, ymirror=true);
                 scatter!(plots[r,c], [df[end,p_x]], [df[end,"KGE"]], color="red", msw=0);
             elseif c < r
                 p_y = names_par[r]
-                yt = c==1 ? bounds_local[p_y] : false
+                yt = c==1 ? bounds[p_y] : false
                 yl = c==1 ? p_y : ""
                 plots[r,c] = scatter(df[:,p_x], df[:,p_y], marker_z=df[:,"KGE"], color=:viridis, msw=0, grid=false,
-                                     xticks=xt, yticks=yt, xlim=bounds_local[p_x], ylim=bounds_local[p_y],
+                                     xticks=xt, yticks=yt, xlim=bounds[p_x], ylim=bounds[p_y],
                                      xlabel=xl, ylabel=yl);
                 scatter!(plots[r,c], [df[end,p_x]], [df[end,p_y]], color="red", marker=:cross, msw=0.5);
             else
@@ -155,9 +167,6 @@ function calibrateMultipleCatchments(path_toml::String)
     if any(is_bad)
         error(println("Some input files do not exist or are not valid:\n", ok_input[is_bad,:]))
     end
-    # Load parameter ranges
-    raw = TOML.parsefile(settings.path_parameter_ranges)
-    bounds_all = Dict(k => DataFrame(convert(Dict{String,Vector{Float64}}, d)) for (k, d) in raw)
     # Loop through catchments
     for (n, id) in enumerate(catchments)
         ## Root folder for catchment output
@@ -170,13 +179,8 @@ function calibrateMultipleCatchments(path_toml::String)
         parameters = ParameterSet(path_inipar)
         dir_out_ini = mkpath(joinpath(dir_out, "initial"))
         runDDD(paths_ptq, getHydrologicParameters(parameters), parameters.values, settings.spinup, dir_out_ini, "initial parameters")
-        ## Modify parameter bounds if specified for catchment (NOT IMPLEMENTED YET)
-        if haskey(bounds_all, id)
-            error("Not implemented yet: parameter ranges for individual catchments")
-        else
-            names_hydpar = ["u", "pro", "TX", "pkorr", "skorr", "GscInt", "OFVP", "OFVIP", "Lv", "Rv"]
-            bounds_local = [Tuple{Float64,Float64}(bounds_all["default"][:,k]) for k in names_hydpar]
-        end
+        ## Load parameter ranges
+        ranges = collect(values(loadParameterRanges(id, settings)))
         ## Calibrate
         dir_out_cal = mkpath(joinpath(dir_out, "calibrated"))
         dir_log_cal = mkpath(joinpath(dir_out_cal, "log"))
@@ -185,13 +189,13 @@ function calibrateMultipleCatchments(path_toml::String)
         evaluator = makeEvaluator(ptq_in, parameters.values, settings.spinup, template_path_r2)
         print("\tCalibration started on ", Dates.format(now(), "yyyy-mm-dd HH:MM"))
         res = redirect_stdio(stdout=devnull, stderr=devnull) do
-            bboptimize(evaluator; SearchRange=bounds_local, MaxSteps=settings.steps_max, TraceMode=:silent, SaveTrace=true, NThreads=num_threads)
+            bboptimize(evaluator; SearchRange=ranges, MaxSteps=settings.steps_max, TraceMode=:silent, SaveTrace=true, NThreads=num_threads)
         end
         print(" and ended after ", canonicalize(Second(Int(round(res.elapsed_time)))))
         println(" -> KGE: ", round(1 - best_fitness(res), digits=4))
         ## Write calibrated parameters to file
         setHydrologicParameters!(parameters, best_candidate(res))
-        CSV.write(joinpath(dir_out_cal, "parameters.csv"), parameters.values, delim=';', writeheader=false)
+        toCSV(parameters, joinpath(dir_out_cal, "parameters.csv"))
         ## Parameter plots
         plotParameters(id, 50, dir_out, settings)
         ## Run DDD with calibrated parameters
