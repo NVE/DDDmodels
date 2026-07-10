@@ -27,7 +27,6 @@
 # Running DDD:    It is possible to save model state variables and run the model
 #                 starting from saved state variables
 #----------------------------------------------------------------------------------
-using Infiltrator
 import Base.Threads: nthreads, threadid
 using CSV
 using DataFrames
