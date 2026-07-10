@@ -8,7 +8,7 @@
 #--------------------------------------------------------------------------
 
 
-function OverlandFlowDynamicDD(k,ddist,outx, layerUH, nodaysvector,NoL, midDL, CritFlux, Timeresinsec)
+function OverlandFlowDynamicDD!(k, ddist, outx, layerUH, nodaysvector, NoL, midDL, CritFlux, Timeresinsec)
 
 # using Distributions
     
@@ -57,11 +57,9 @@ function OverlandFlowDynamicDD(k,ddist,outx, layerUH, nodaysvector,NoL, midDL, C
       end
 
       OFUH = SingleUH(celerityOF,Timeresinsec, dmean, maxdistOF, zOF)
-      if (length(OFUH) < nodaysvector[1])             # ensures DNR is more dense than original RN
-         layerUH[1,1:length(OFUH)] .= OFUH
-         layerUH[1,((length(OFUH)+1):nodaysvector[NoL])] .= 0.0
+      if length(OFUH) < nodaysvector[1] # ensures DNR is more dense than original RN
+         layerUH[1:length(OFUH),1] .= OFUH
+         layerUH[(length(OFUH)+1):nodaysvector[NoL],1] .= 0.0
       end
   end
-
-    return layerUH[1,1:nodaysvector[1]]
 end

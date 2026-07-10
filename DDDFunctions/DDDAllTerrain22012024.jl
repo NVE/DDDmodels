@@ -27,6 +27,7 @@
 # Running DDD:    It is possible to save model state variables and run the model
 #                 starting from saved state variables
 #----------------------------------------------------------------------------------
+using Infiltrator
 import Base.Threads: nthreads, threadid
 using CSV
 using DataFrames
@@ -106,40 +107,40 @@ DDA = 6  # number of landscape types with distance distribution
 # DDA=5 Glaciers  NB, Glaciated area is considered as P area for runoff dynamics
 # DDA=6 Rivernetwork
 #  
-Lty = 2  # Areas with a subsurface and a snow distribution Lty[1] includes DDA[1,3,4,5] DDA[5] has no aeal extention 
+Lty = 2 # Number of areas with a subsurface and a snow distribution Lty[1] includes DDA[1,3,4,5] DDA[5] has no aeal extention 
+hson = 10 # Number of elevation zones
 
 #-------------------------------------preprocess start------------------------------------------
 
 #####################VARIABLES FOR 10 ELEVATION ZONES and for Parts ###########################################
-isoil = zeros(Lty,10)# precipitation and snowmelt from the elevation zones
+isoil = zeros(hson, Lty)# precipitation and snowmelt from the elevation zones
 misoil = zeros(Lty)# summed isoil for all elevation sones
-gwgt = zeros(10)               # weights for glaciermelt pr each elevation zone
-swgt = zeros(Lty,10)# weights for input to soils pr each elevation zone NB bogs are not part of this yet
-spd = zeros(Lty,10)
-swe_h = zeros(Lty,10)   #SWE pr altitude level
-wcd = zeros(Lty,10)
-sca = zeros(Lty,10)
-nsno = zeros(Lty,10)
-alfa = zeros(Lty,10)
-ny = zeros(Lty,10)
-snowfree = zeros(Lty,10)  #Indicator variable: 1 if sca  < gca and 0 if sca > gca
-#tempvec = zeros(Lty,10)   # temperature vector  to save in statefile
-PR = zeros(Lty,10)
-PS = zeros(Lty,10)
-MW = zeros(Lty,10)
-SWrad = zeros(Lty,10)
-LA = zeros(Lty,10)
-LT = zeros(Lty,10)
-Pa = zeros(10)
-MWGLAC= zeros(Lty,10)
-MWGLAC1 = zeros(Lty,10)
-gisoil = zeros(Lty,10)   # glacialmelt from the elevation zones
+gwgt = zeros(hson)               # weights for glaciermelt pr each elevation zone
+swgt = zeros(hson, Lty)# weights for input to soils pr each elevation zone NB bogs are not part of this yet
+spd = zeros(hson, Lty)
+swe_h = zeros(hson, Lty)   #SWE pr altitude level
+wcd = zeros(hson, Lty)
+sca = zeros(hson, Lty)
+nsno = zeros(hson, Lty)
+alfa = zeros(hson, Lty)
+ny = zeros(hson, Lty)
+snowfree = zeros(hson, Lty)  #Indicator variable: 1 if sca  < gca and 0 if sca > gca
+PR = zeros(hson, Lty)
+PS = zeros(hson, Lty)
+MW = zeros(hson, Lty)
+SWrad = zeros(hson, Lty)
+LA = zeros(hson, Lty)
+LT = zeros(hson, Lty)
+Pa = zeros(hson)
+MWGLAC= zeros(hson, Lty)
+MWGLAC1 = zeros(hson, Lty)
+gisoil = zeros(hson, Lty)   # glacialmelt from the elevation zones
 
 #Addition for Enegy balance snowmelt
-snro = zeros(Lty,10)            #Snow density
-melt = zeros(Lty,10)           #instead of degreeday melt (MW)
-snowdepth = zeros(Lty,10)        #hmm..
-sndens = zeros(Lty,10)           #hm ...
+snro = zeros(hson, Lty)            #Snow density
+melt = zeros(hson, Lty)           #instead of degreeday melt (MW)
+snowdepth = zeros(hson, Lty)        #hmm..
+sndens = zeros(hson, Lty)           #hm ...
 #################################Parameters as vectors#############################################
 a0 = zeros(Lty) # scale parameter unit snow
 n0 = zeros(Lty) # shape parameter unit snow
@@ -182,8 +183,7 @@ middelsca = zeros(Lty)
 snofritt = zeros(Lty)
 wcs = zeros(Lty)
 GIsoil = zeros(Lty)  # mean glacial melt 
-scaobx = zeros(10)
-hfelt = zeros(10)
+hfelt = zeros(hson)
 
 ########################Reading parameters#########################################################
 #Hyposgraphic curve and locations
@@ -289,7 +289,6 @@ end
 !silent && println("Mad= ", MAD)
 
 #Constants
-hson = 10                               # Elevation zones
 unitsnow = 0.1                          # mean of unit snow [mm]
 n0 = unitsnow*a0                        # shape parameter of unit snow
 gtcel = 0.99                            # threshold qunatile for groundwater capacity -> Overland flow
@@ -303,12 +302,10 @@ Pa[1:10] = 101.3*((293 .- 0.0065.*hfelt[1:10])/293.0).^5.26     # Air pressure a
 MPa = mean(Pa)
 
 #vectors and matrixes
-ddist = zeros(Lty,NoL)          # distribution of water in layers
-ddistx = zeros(Lty,NoL)         # water present in layers
-ddistxtemp = zeros(Lty,NoL)     # temporay of the above
-Magkap = zeros(Lty,NoL)
-aktMag = zeros(Lty,NoL)         # current water in Layers
-k = zeros(Lty,NoL)              # subsurface celerities (including that of overland flow) 
+ddist = zeros(NoL, Lty)          # distribution of water in layers
+ddistx = zeros(NoL, Lty)         # water present in layers
+Magkap = zeros(NoL, Lty)
+k = zeros(NoL, Lty)              # subsurface celerities (including that of overland flow) 
 qberegn = zeros(days)            # for calculation of skill scores etc. 
 
 if(kal == 0)
@@ -339,20 +336,17 @@ end
 # Finds the fraction of soils (and bogs) in each elevation zone in relation to total soil (and bog) area
 # fraction of total soil- and bogarea located in each elvation zone  
 # Glacer runoff is wil potentially come as an addition only to P area (including bogs) 
-swgt[1,1:hson] .= soilca .* elevarea/(area[1]+ area[3]-area[5])   # sums to 1, corrected for areafraction later,rain, snowmelt and from glaciers 
+swgt[:,1] .= soilca .* elevarea/(area[1]+ area[3]-area[5])   # sums to 1, corrected for areafraction later,rain, snowmelt and from glaciers 
 #NOTE again, area[1] inludes area[5]
-swgt[2,1:hson] .= 0.1   # 1 .* elevarea/(totarea)          # sums to 1, corrected for areafraction later,rain and snowmelt is only input to IP area
+swgt[:,2] .= 0.1   # 1 .* elevarea/(totarea)          # sums to 1, corrected for areafraction later,rain and snowmelt is only input to IP area
 #Ser OK ut for case area[2]==0  31.1.2024
 
 #Subsurface celerities 
 for Lst in 1:Lty
-    k[Lst,1:NoL] = CeleritySubSurface(NoL, Gshape, Gscale, Ltymid[Lst], Timeresinsec) # Celerity of subsurface (and overland) flow
-   if(Lst==1)
-    k[Lst,1] = k[Lst,1]*2   #03.07.2025 Double the original profile estimate due to equifinality, ECCO result #OFVP  # P m/s Holden et al. WRR,2008,  # Overland flow celerites P
-   end
-   if(Lst==2)
-    k[Lst,1] = k[Lst,1]*2   #03.07.2025 Double the original profile estimate due to equifinality, ECCO result #OFVIP # IP, Sedyowati et al. 2017      # Overland flow celerites IP
-   end 
+    k[:,Lst] = CeleritySubSurface(NoL, Gshape, Gscale, Ltymid[Lst], Timeresinsec) # Celerity of subsurface (and overland) flow
+    if Lst in (1, 2)
+        k[1,Lst] *= 2 # 03.07.2025 Double the original profile estimate due to equifinality, ECCO result #OFVP and #OFVIP # P m/s Holden et al. WRR,2008 # IP, Sedyowati et al. 2017  # Overland flow celerites P and IP
+    end
 end
 
 #Overlandflow celerities
@@ -371,30 +365,26 @@ end
 #Unit hydrographs for P and IP based on celerities and distance distributions,exponentially distributed
 antHorlag = zeros(Int64,Lty)
 for Lst in 1:Lty
-    antHorlag[Lst] = Int(trunc(Ltymax[Lst]/(k[Lst,NoL]*Timeresinsec))+1)       # +1 includes the final day.  NB only in soils part
+    antHorlag[Lst] = Int(trunc(Ltymax[Lst]/(k[NoL,Lst]*Timeresinsec))+1) # +1 includes the final day.  NB only in soils part
 end
 
-nodaysvector = zeros(Int64,Lty, NoL)                        # Number of timesteps to drain each layer
+nodaysvector = zeros(Int64, NoL, Lty) # Number of timesteps to drain each layer
 for Lst in 1:Lty 
-    nodaysvector[Lst,1:NoL] = Int.(trunc.(Ltymax[Lst]./k[Lst,1:NoL]./Timeresinsec).+1)   # integer time steps
+    nodaysvector[:,Lst] = Int.(trunc.(Ltymax[Lst] ./ k[:,Lst] ./ Timeresinsec).+1) # integer time steps
 end
 
- if(area[1] >0.0)
-  layerUH_P = zeros(NoL,antHorlag[1])
- end
- if(area[2] >0.0)
-  layerUH_IP = zeros(NoL,antHorlag[2])  
- end 
+if area[1] > 0
+ layerUH_P = zeros(antHorlag[1], NoL)
+end
+if area[2] > 0
+ layerUH_IP = zeros(antHorlag[2], NoL)  
+end 
  
-for i in 1: NoL 
-  for Lst in 1:Lty 
-   if(Lst==1) 
-    layerUH_P[i,1:nodaysvector[Lst,i]] .= SingleUH(k[Lst,i], Timeresinsec, Ltymid[Lst], Ltymax[Lst], Ltyz[Lst])
-   end
-   if(Lst==2) 
-    layerUH_IP[i,1:nodaysvector[Lst,i]] .= SingleUH(k[Lst,i], Timeresinsec, Ltymid[Lst], Ltymax[Lst], Ltyz[Lst])
-   end
-  end
+for i in 1:NoL
+    layerUH_P[1:nodaysvector[i,1],i] .= SingleUH(k[i,1], Timeresinsec, Ltymid[1], Ltymax[1], Ltyz[1])
+    if Lty > 1
+      layerUH_IP[1:nodaysvector[i,2],i] .= SingleUH(k[i,2], Timeresinsec, Ltymid[2], Ltymax[2], Ltyz[2])
+    end
 end
 
 #UH for RIVER/Conduits, normally distributed #6
@@ -422,13 +412,13 @@ QRivxBog = zeros(noDT)
 QRivxOF = zeros(noDT)
 
 #Groundwater layers; 2dim levels, 1 fastest, NoL slowest#
-if(area[1] >0.0)
-  LayersP = zeros(NoL,antHorlag[1])
- end
-if(area[2] > 0.0)
-  LayersIP = zeros(NoL,antHorlag[2]) 
+if area[1] > 0
+  LayersP = zeros(antHorlag[1], NoL)
+end
+if area[2] > 0
+  LayersIP = zeros(antHorlag[2], NoL) 
 else
-  LayersIP =zeros(NoL,1)
+  LayersIP = zeros(1, NoL)
 end 
 
 BogLayers = zeros(antBogsteps) # no vertical dimension
@@ -438,21 +428,21 @@ IP_LakeLayers = zeros(nodaysLake) # no vertical dimension
 Bog_LakeLayers = zeros(nodaysLake) # no vertical dimension 
 OF_LakeLayers = zeros(nodaysLake) # no vertical dimension 
 
-for Lst in 1: Lty
-  if(area[Lst]>0.0)
-  Magkap[Lst,1:NoL], M[Lst] = LayerEstimation(GshInt,GscInt,Timeresinsec,Ltymax[Lst],Ltymid[Lst], 
-        Ltyfrac[Lst]*MAD, Ltyfrac[Lst]*totarea, NoL, gtcel) 
+for Lst in 1:Lty
+  if area[Lst] > 0
+    Magkap[:,Lst], M[Lst] = LayerEstimation(GshInt, GscInt, Timeresinsec, Ltymax[Lst], Ltymid[Lst],
+                                            Ltyfrac[Lst]*MAD, Ltyfrac[Lst]*totarea, NoL, gtcel) 
   end   
 end
 #Note that MAD is for the entire catchment. It is fractioned in the above subroutine
 
 #Extracting areas and heights in pyramide-plot for estimating SS states at distances from or in the RN
-Parea = area[1] + area[3]+ area[4]+area[5]   # areas where the DD for Pareas apply: Pareas, 
-AreasP, delta_dP = PyrAreas(NoL,Parea,Ltymax[1],nodaysvector[1,1:NoL], layerUH_P, antHorlag[1]) # A matrix of areas[in m2] for each time-step box, 
+Parea = area[1] + area[3] + area[4] + area[5] # areas where the DD for Pareas apply: Pareas, 
+AreasP, delta_dP = PyrAreas(NoL, Parea, Ltymax[1], nodaysvector[:,1], layerUH_P, antHorlag[1]) # A matrix of areas[in m2] for each time-step box, 
                                                                  # Important: same dimensions as Layers
                                                                  # The area drained pr time-step box for each layer
-if(area[2] > 0.0)
-  AreasIP, delta_dIP = PyrAreas(NoL,area[2],Ltymax[2],nodaysvector[2,1:NoL], layerUH_IP, antHorlag[2]) # A matrix of areas[in m2] for each time-step box, 
+if area[2] > 0
+  AreasIP, delta_dIP = PyrAreas(NoL, area[2], Ltymax[2], nodaysvector[:,2], layerUH_IP, antHorlag[2]) # A matrix of areas[in m2] for each time-step box, 
 end
 
 RNwdelta_d = Ltymax[6]/noDT
@@ -531,17 +521,17 @@ for i in startsim:days
      snittT[Lst] = SnowpackTemp(STempvec) 
 
       #Calculates Rain vs Snow and Snow/Glaciermelt
-      WaterIn = NedbEB(CFR,DN,hprecip[idim],htemp[idim],spd[Lst,idim],Timeresinsec,TX,pkorr,skorr,
-                         hr,u,Pa[idim],CGLAC,CX,TS,taux[Lst],snittT[Lst],phi,thi)
+      WaterIn = NedbEB(CFR, DN, hprecip[idim], htemp[idim], spd[idim,Lst], Timeresinsec, TX, pkorr ,skorr,
+                       hr, u, Pa[idim], CGLAC, CX, TS, taux[Lst], snittT[Lst], phi, thi)
 
       #From WaterIn per elevation zone:         
-      PS[Lst,idim] = WaterIn[1]        # Precipitation as snow
-      PR[Lst,idim] = WaterIn[2]        # Precipitation as rain      
-      MW[Lst,idim] = WaterIn[3]        # Snow melt potential
-      MWGLAC[Lst,idim] = WaterIn[4]    # glaciers 
-      SWrad[Lst,idim] = WaterIn[5]     # Short wave radiation (net)
-      LA[Lst,idim] = WaterIn[6]        # Long wave radiation atomspheric
-      LT[Lst,idim] = WaterIn[7]        # Long wave radiation terrestrial
+      PS[idim,Lst] = WaterIn[1]        # Precipitation as snow
+      PR[idim,Lst] = WaterIn[2]        # Precipitation as rain      
+      MW[idim,Lst] = WaterIn[3]        # Snow melt potential
+      MWGLAC[idim,Lst] = WaterIn[4]    # glaciers 
+      SWrad[idim,Lst] = WaterIn[5]     # Short wave radiation (net)
+      LA[idim,Lst] = WaterIn[6]        # Long wave radiation atomspheric
+      LT[idim,Lst] = WaterIn[7]        # Long wave radiation terrestrial
       SH = WaterIn[8]                  # Turbulent heat
       LE = WaterIn[9]                  # Latent heat
       GH = WaterIn[10]                 # Ground heat
@@ -553,88 +543,88 @@ for i in startsim:days
       Tss = WaterIn[16]                # Snow surface temperature
       RH =  WaterIn[18]                # Relative humidity
       Cl = WaterIn[17]                 # CloudCover
-      MWGLAC1[Lst,idim]=WaterIn[19]	   # Potential glacial melt from EB
+      MWGLAC1[idim,Lst] = WaterIn[19]	   # Potential glacial melt from EB
 
-      gisoil[Lst,idim] = MWGLAC1[1,idim]  # runoff due to glacial melt. is later corrected for snowfree areas
+      gisoil[idim,Lst] = MWGLAC1[idim,1]  # runoff due to glacial melt. is later corrected for snowfree areas
        
       # calculates Snow accumulation and Snowdistribution      
-      FromSnow = SnowGamma(PR[Lst,idim],PS[Lst,idim],MW[Lst,idim],sca[Lst,idim],spd[Lst,idim],wcd[Lst,idim],
-                        pro,nsno[Lst,idim],alfa[Lst,idim],ny[Lst,idim],a0[Lst],n0[Lst],a0[Lst],d[Lst])
+      FromSnow = SnowGamma(PR[idim,Lst], PS[idim,Lst], MW[idim,Lst], sca[idim,Lst], spd[idim,Lst], wcd[idim,Lst],
+                           pro, nsno[idim,Lst], alfa[idim,Lst], ny[idim,Lst], a0[Lst], n0[Lst], a0[Lst], d[Lst])
     
-      isoil[Lst,idim] = FromSnow[1]  # precipitation and snowmelt
-      spd[Lst,idim] = FromSnow[2]    # snow water equivalent
-      wcd[Lst,idim] = FromSnow[3]    # liquid water in snow
-      sca[Lst,idim] = FromSnow[4] 
-      nsno[Lst,idim] = FromSnow[5] 
-      alfa[Lst,idim] = FromSnow[6] 
-      ny[Lst,idim] = FromSnow[7]
+      isoil[idim,Lst] = FromSnow[1]  # precipitation and snowmelt
+      spd[idim,Lst] = FromSnow[2]    # snow water equivalent
+      wcd[idim,Lst] = FromSnow[3]    # liquid water in snow
+      sca[idim,Lst] = FromSnow[4] 
+      nsno[idim,Lst] = FromSnow[5] 
+      alfa[idim,Lst] = FromSnow[6] 
+      ny[idim,Lst] = FromSnow[7]
      
-      if (spd[idim] > 10000)     
+      if (spd[idim,Lst] > 10000)
 	    if(kal == 1)
-          spd[idim]  = 8000.0
+          spd[idim,Lst]  = 8000.0
 	      skorr= 0.9*skorr
           !silent && println("Skorr is reduced, you build snowtowers = trend in SWE")
 	    end 
       end
       
-      if (sca[1,idim] < gca[idim])   # only for Lst = 1 permeable aras changed 15.02 2024
-        snowfree[1, idim] = 1.0
+      if (sca[idim,1] < gca[idim])   # only for Lst = 1 permeable aras changed 15.02 2024
+        snowfree[idim,1] = 1.0
       else
-        snowfree[1,idim] = 0.0       # test for glaciermelt,  no melt if snowcovered, snowfree[idim] =0.0  
+        snowfree[idim,1] = 0.0       # test for glaciermelt,  no melt if snowcovered, snowfree[idim] =0.0  
       end
 
      #Snowdepths and snowdenities
-     snowdepthx = snowdepth[Lst,idim]
-     snomag[Lst] =  sca[Lst, idim]*spd[Lst,idim] #snowreservoir this timestep
+     snowdepthx = snowdepth[idim,Lst]
+     snomag[Lst] =  sca[idim,Lst] * spd[idim,Lst] #snowreservoir this timestep
 
      #Calling snowdepth routine
-     snowdepth[Lst,idim],sndens[Lst,idim] = NewSnowSDEB(PR[Lst,idim],PS[Lst,idim],htemp[idim],TX,
-            MW[Lst,idim],snomag[Lst],snomag[Lst],snowdepthx)
+     snowdepth[idim,Lst], sndens[idim,Lst] = NewSnowSDEB(PR[idim,Lst], PS[idim,Lst], htemp[idim], TX,
+                                                         MW[idim,Lst], snomag[Lst], snomag[Lst], snowdepthx)
      
     end #for elevation zones
  
-    MSWrad[Lst] = mean(SWrad[Lst,1:hson])
-    MLA[Lst] = mean(LA[Lst,1:hson])
-    MLT[Lst] = mean(LT[Lst,1:hson])
-    GIsoil[Lst] = mean(gisoil[Lst,1:hson])
+    MSWrad[Lst] = mean(SWrad[:,Lst])
+    MLA[Lst] = mean(LA[:,Lst])
+    MLT[Lst] = mean(LT[:,Lst])
+    GIsoil[Lst] = mean(gisoil[:,Lst])
 
     #Snowreservoir
-    snomag[Lst] = mean(sca[Lst,1:hson] .* spd[Lst,1:hson]) #mean catchment SWE ,must multiply with SCA to have arealvalues
-    swe_h[Lst,1:hson] = sca[Lst,1:hson] .* spd[Lst,1:hson] #SWE pr. elevation zone
-    middelsca[Lst] = sum(sca[Lst,1:hson])/hson
-    snofritt[Lst] = 1-middelsca[Lst]
-    wcs[Lst] = mean(wcd[Lst,1:hson])
+    snomag[Lst] = mean(sca[:,Lst] .* spd[:,Lst]) # mean catchment SWE ,must multiply with SCA to have arealvalues
+    swe_h[:,Lst] = sca[:,Lst] .* spd[:,Lst] # SWE pr. elevation zone
+    middelsca[Lst] = mean(sca[:,Lst])
+    snofritt[Lst] = 1 - middelsca[Lst]
+    wcs[Lst] = mean(wcd[:,Lst])
 
     #Estimate isoil from all elevation zones
-    misoil[Lst] = sum(isoil[Lst,1:hson].*swgt[Lst,1:hson])                                      #snowmelt and rain on soils. 
+    misoil[Lst] = sum(isoil[:,Lst] .* swgt[:,Lst]) #snowmelt and rain on soils. 
     # isoil is weighted by the fraction of soils
     # in relation to soil an bog area pr elevation band
   end #For landscape types snow and rain
     
     # The following two statements soly for Lst ==1 (P areas)   
-    m_r_onglac = sum(isoil[1,1:hson].*gwgt)            # snowmelt and rain from glaciated area. 
+    m_r_onglac = sum(isoil[:,1] .* gwgt) # snowmelt and rain from glaciated area. 
     # isoil is weighted by the fraction of glaciers 
     # pr elevation band in relation to total glaciated area  
     # glacier melt (gisoil) in mm this timestep. 
     # m_r_onglac + outglac is total output from glacier
-    outglac = sum(gisoil[1,1:hson].*gwgt[1:hson].*snowfree[1,1:hson])  # gwgt because it is going to be scaled by glacfrac later on
+    outglac = sum(gisoil[:,1] .* gwgt .* snowfree[:,1])  # gwgt because it is going to be scaled by glacfrac later on
 
-    if(area[1] > 0.0) # area[1] includes area[5]
-      ddistx[1,1:NoL] = LayerCapacityUpdate(LayersP, nodaysvector[1,1:NoL], Magkap[1,1:NoL], NoL)
+    if area[1] > 0 # area[1] includes area[5]
+      ddistx[:,1] = LayerCapacityUpdate(LayersP, nodaysvector[:,1], Magkap[:,1], NoL)
      end
-     if(area[2] > 0.0)
-      ddistx[2,1:NoL] = LayerCapacityUpdate(LayersIP, nodaysvector[2,1:NoL], Magkap[2,1:NoL], NoL)
+     if area[2] > 0
+      ddistx[:,2] = LayerCapacityUpdate(LayersIP, nodaysvector[:,2], Magkap[:,2], NoL)
      end 
    
      gmltosoil[1] = misoil[1]*(1-(Ltyfrac[5]))+Ltyfrac[5]*(outglac+m_r_onglac) # input from rain, snow and glaciers always > 0 Needs some work!! [5] is glaciers
-     gmltosoil[2] = sum(isoil[2,1:hson] .* swgt[2,1:hson]) # same as misoil[2]
+     gmltosoil[2] = sum(isoil[:,2] .* swgt[:,2]) # same as misoil[2]
 
     #Updating the deficit (for all sub surface layers, NOT overland flow layer) before Evapotranspiration
     for Lst in 1:Lty
-      totdef[Lst] = sum(ddistx[Lst,2:NoL])            # This may be negative if input outstrips deficits
+      totdef[Lst] = sum(ddistx[2:NoL,Lst]) # This may be negative if input outstrips deficits
       
       PotEvap[Lst] = PotentialEvapPT(meantemp, MSWrad[Lst], MLA[Lst], MLT[Lst], MPa)
-      if(PotEvap[Lst] < 0.0)
+      if PotEvap[Lst] < 0
         PotEvap[Lst] = 0.0
       end
       Def[Lst] = max(totdef[Lst],0)
@@ -660,31 +650,31 @@ for i in startsim:days
     end
     
     #calculating additional (ea_S) evapotranspiration directly from Layers
-    if(area[1] >0.0)
-      LayersP, ea_S[1] = LayerEvap(LayersP, nodaysvector[1,1:NoL], ea_S[1],layerUH_P,NoL)
+    if area[1] > 0
+      LayersP, ea_S[1] = LayerEvap(LayersP, nodaysvector[:,1], ea_S[1], layerUH_P, NoL)
       ea[1] = ea_sm[1] + ea_S[1]
      end
-     if(area[2] > 0.0)
-      LayersIP, ea_S[2] = LayerEvap(LayersIP, nodaysvector[2,1:NoL], ea_S[2],layerUH_IP, NoL)
+     if area[2] > 0
+      LayersIP, ea_S[2] = LayerEvap(LayersIP, nodaysvector[:,2], ea_S[2], layerUH_IP, NoL)
       ea[2] = ea_sm[2] + ea_S[2] # adding evapotranspiration from sm (first) and Layers (second)
      end 
        
     #Estimating current capacity in Layers after Evapotranspiration
-    if(area[1] >0.0)
-      ddistx[1,1:NoL] = LayerCapacityUpdate(LayersP, nodaysvector[1,1:NoL], Magkap[1,1:NoL], NoL)
-     end
-     if(area[2] > 0.0)
-      ddistx[2,1:NoL] = LayerCapacityUpdate(LayersIP, nodaysvector[2,1:NoL], Magkap[2,1:NoL], NoL)
-     end 
+    if area[1] > 0
+      ddistx[:,1] = LayerCapacityUpdate(LayersP, nodaysvector[:,1], Magkap[:,1], NoL)
+    end
+    if area[2] > 0
+      ddistx[:,2] = LayerCapacityUpdate(LayersIP, nodaysvector[:,2], Magkap[:,2], NoL)
+    end 
 
     #Updating the deficit (for all sub surface layers, NOT overland flow layer)
     for Lst in 1:Lty       
-      totdef[Lst] = sum(ddistx[Lst,2:NoL])            # This may be negative if input outstrips deficits
-      Def[Lst] = max(totdef[Lst],0)
+      totdef[Lst] = sum(ddistx[2:NoL,Lst]) # This may be negative if input outstrips deficits
+      Def[Lst] = max(totdef[Lst], 0)
     end 
      
   #Estimate isoil from all elevation zones and Lty
-   for Lst in 1:Lty   
+   for Lst in 1:Lty
     # State of unsaturated zone, it can etiher be zero (complete saturation) or positive, the deficit. If negative we have overland flow 
     smlast = sm[Lst]
     # Call for the soilwater routine  calculates soil water (unsaturated) and evapotransipration 
@@ -712,37 +702,43 @@ for i in startsim:days
   
   #Estimating input to Layers according to capacity
   for Lst in 1:Lty  
-   ddist[Lst,1:NoL] = GrvInputDistributionICap(outx[Lst], NoL, ddistx[Lst,1:NoL], ddist[Lst,1:NoL], ICap[Lst])
+   ddist[:,Lst] = GrvInputDistributionICap(outx[Lst], NoL, ddistx[:,Lst], ddist[:,Lst], ICap[Lst])
   end
   
   #We need to include OF due to exceeeded infiltration capacity and UPDATE dist and outx. ddist will distribute outx taking into account both sat and inf excess
   for Lst in 1:Lty  
-   if(OF[Lst]>0.0) # recall OF is only due to inf excess
-        ddist[Lst,1] = ddist[Lst,1] + (OF[Lst]/(OF[Lst]+outx[Lst])) # will include water from exceedance of infiltration capacity
-		ddist[Lst,2:NoL] = (1-ddist[Lst,1]).*ddist[Lst,2:NoL]  #updating the rest of ddist if OF
-	    outx[Lst]= outx[Lst]+ OF[Lst]
+   if OF[Lst] > 0 # recall OF is only due to inf excess
+        ddist[1,Lst] += OF[Lst] / (OF[Lst] + outx[Lst]) # will include water from exceedance of infiltration capacity
+		ddist[2:NoL,Lst] .*= 1 - ddist[1,Lst] # updating the rest of ddist if OF
+	    outx[Lst] += OF[Lst]
    end
   end
   
   #Calculating UH for overland flow Layer #1
-  OFDDD = 1
-  if (OFDDD ==1)  
-    for Lst in 1:Lty
-     if(ddist[Lst,1]*outx[Lst] > 0)# overland flow for LST =1 (P) is confirmed for this event
-      
-      if(Lst==1)
-        layerUH_P[1, 1:nodaysvector[1,1]] = OverlandFlowDynamicDD(k[Lst,1:NoL],ddist[Lst,1:NoL],outx[Lst], layerUH_P,
-                    nodaysvector[Lst,1:NoL],NoL, Ltymid[Lst], CritFlux[Lst], Timeresinsec)
-       end              
-       if(Lst==2)
-         if(area[2] > 0.0)
-           layerUH_IP[1, 1:nodaysvector[2,1]] = OverlandFlowDynamicDD(k[Lst,],ddist[Lst,],outx[Lst], layerUH_IP,
-                    nodaysvector[Lst,1:NoL],NoL, Ltymid[Lst], CritFlux[Lst], Timeresinsec)
-         end
-       end
-     end
-    end
+  if ddist[1,1] * outx[1] > 0 # overland flow for LST =1 (P) is confirmed for this event
+    OverlandFlowDynamicDD!(k[:,1], ddist[:,1], outx[1], layerUH_P, nodaysvector[:,1], NoL, Ltymid[1], CritFlux[1], Timeresinsec)
   end
+  if (Lty > 1) && (ddist[1,2] * outx[2] > 0)
+    OverlandFlowDynamicDD!(k[:,2], ddist[:,2], outx[2], layerUH_IP, nodaysvector[:,2], NoL, Ltymid[2], CritFlux[2], Timeresinsec)
+  end
+#  OFDDD = 1 # CHECK AND DELETE!
+#  if (OFDDD ==1)  
+#    for Lst in 1:Lty
+#     if ddist[1,Lst] * outx[Lst] > 0 # overland flow for LST =1 (P) is confirmed for this event
+#      
+#      if(Lst==1)
+#        layerUH_P[1, 1:nodaysvector[1,1]] = OverlandFlowDynamicDD(k[Lst,1:NoL],ddist[Lst,1:NoL],outx[Lst], layerUH_P,
+#                    nodaysvector[Lst,1:NoL],NoL, Ltymid[Lst], CritFlux[Lst], Timeresinsec)
+#       end              
+#       if(Lst==2)
+#         if(area[2] > 0.0)
+#           layerUH_IP[1, 1:nodaysvector[2,1]] = OverlandFlowDynamicDD(k[Lst,],ddist[Lst,],outx[Lst], layerUH_IP,
+#                    nodaysvector[Lst,1:NoL],NoL, Ltymid[Lst], CritFlux[Lst], Timeresinsec)
+#         end
+#       end
+#     end
+#    end
+#  end
 
   ##Waterbalance calculations
   #RinnP =sum(QRivxP[2:noDT])*(Timeresinsec*1000/area[1]) # P water stored in RN from last TimeSep
@@ -757,63 +753,48 @@ for i in startsim:days
    
   #GDT_P = sum(LayersP[1:NoL,1]) + sum(ddist[1,1:NoL] .* outx[1] .* layerUH_P[1:NoL,1])      #groundwater to be discharged into the rivernetwork + this timesteps contribution
   #GDT_IP = sum(LayersIP[1:NoL,1]) + sum(ddist[2,1:NoL] .* outx[2] .* layerUH_IP[1:NoL,1])   #groundwater to be discharged into the rivernetwork 
-  if(area[1] >0.0)
-    GDT_P = sum(LayersP[1:NoL,1]) + sum(ddist[1,1:NoL] .* outx[1] .* layerUH_P[1:NoL,1])      #groundwater to be discharged into the rivernetwork + this timesteps contribution
+  if area[1] > 0
+    GDT_P = sum(LayersP[1,:]) + sum(ddist[:,1] .* outx[1] .* layerUH_P[1,:]) # groundwater to be discharged into the rivernetwork + this timesteps contribution
   end
-  if(area[2] > 0.0)
-    GDT_IP = sum(LayersIP[1:NoL,1]) + sum(ddist[2,1:NoL] .* outx[2] .* layerUH_IP[1:NoL,1])   #groundwater to be discharged into the rivernetwork 
+  if area[2] > 0
+    GDT_IP = sum(LayersIP[1,:]) + sum(ddist[:,2] .* outx[2] .* layerUH_IP[1,:])   #groundwater to be discharged into the rivernetwork 
   end 
-  if(area[3] > 0.0)
+  if area[3] > 0
    GDT_Bog =  BogLayers[1]+outbog*UHbog[1]         #bogwater to be discharged into the rivernetwork + this timesteps contribution
   end
   
   #Overland flow
   GDT_OF = Ltyfrac[1]*(LayersP[1,1]+(ddist[1,1]*outx[1]*layerUH_P[1,1]))
-  if(area[2] > 0.0)
-    GDT_OF  = GDT_OF +Ltyfrac[2]*(LayersIP[1,1]+(ddist[2,1]*outx[2]*layerUH_IP[1,1]))
+  if area[2] > 0
+    GDT_OF  = GDT_OF +Ltyfrac[2]*(LayersIP[1,1]+(ddist[1,2]*outx[2]*layerUH_IP[1,1]))
   end  
-  if(area[3] > 0.0)
+  if area[3] > 0
     GDT_OF  = GDT_OF + Ltyfrac[3]*(BogLayers[1]+outbog*UHbog[1])# Overland flow part
   end         
             
   #Updating the saturation Layers
-    for Lst in 1:Lty
-      if(Lst==1)
-         LayerUpdate!(ddist[Lst,1:NoL],outx[Lst], LayersP, layerUH_P, nodaysvector[Lst,1:NoL], NoL)
-    end       
-      if(Lst==2)
-        LayerUpdate!(ddist[Lst,1:NoL],outx[Lst], LayersIP, layerUH_IP, nodaysvector[Lst,1:NoL], NoL)       
-      end
-    end  
-
-  BogLayerUpdate!(outbog, BogLayers, UHbog, antBogsteps)#
+  LayerUpdate!(ddist[:,1], outx[1], LayersP, layerUH_P, nodaysvector[:,1], NoL)
+  if Lty > 1
+    LayerUpdate!(ddist[:,2], outx[2], LayersIP, layerUH_IP, nodaysvector[:,2], NoL)
+  end
+  BogLayerUpdate!(outbog, BogLayers, UHbog, antBogsteps)
    
   #summing up groundwater states
-    for Lst in 1:Lty
-      if(Lst == 1)
-         lyrs[Lst] = sum(LayersP)                           # Todays precip is included, but ex todays runoff
-         subsurface[Lst] = sum(LayersP[2:NoL,1:antHorlag[1]]) # gives the sum of layers after todays runoff has taken place
-      end
-      if(Lst==2)
-         lyrs[Lst] = sum(LayersIP)
-         subsurface[Lst] = sum(LayersIP[2:NoL,1:antHorlag[2]])
-      end
-    end
+  lyrs[1] = sum(LayersP)                           # Todays precip is included, but ex todays runoff
+  subsurface[1] = sum(LayersP[:,2:NoL]) # gives the sum of layers after todays runoff has taken place
+  lyrs[2] = sum(LayersIP)
+  subsurface[2] = sum(LayersIP[:,2:NoL])
   
   #summing up bogstates
   boglyrs = sum(BogLayers)
         
-  #reinstate original overland flow layer          
-  for Lst in 1:Lty 
-    if(Lst==1) 
-     layerUH_P[1,1:nodaysvector[Lst,1]] .= SingleUH(k[Lst,1], Timeresinsec, Ltymid[Lst], Ltymax[Lst], Ltyz[Lst])
-    end
-    if(Lst==2) 
-     layerUH_IP[1,1:nodaysvector[Lst,1]] .= SingleUH(k[Lst,1], Timeresinsec, Ltymid[Lst], Ltymax[Lst], Ltyz[Lst])
-    end
+  #reinstate original overland flow layer
+  layerUH_P[1:nodaysvector[1,1],1] .= SingleUH(k[1,1], Timeresinsec, Ltymid[1], Ltymax[1], Ltyz[1])
+  if Lty > 1
+    layerUH_IP[1:nodaysvector[2,1],1] .= SingleUH(k[1,2], Timeresinsec, Ltymid[2], Ltymax[2], Ltyz[2])
   end
 
-  GrWP = GrWPoint(nodaysvector[1,1:NoL], i, NoL, AreasP, LayersP, Parea, mindist, delta_dP) # returns a vector of mm groundwater at different points perpendicular to the RN
+  GrWP = GrWPoint(nodaysvector[:,1], i, NoL, AreasP, LayersP, Parea, mindist, delta_dP) # returns a vector of mm groundwater at different points perpendicular to the RN
   
   #runoff this timestep
   if(area[1] > 0.0)
@@ -957,9 +938,9 @@ wwater = 1.0*persons*(140.0 + 42.0)/(86400.0*1000.0)# norsk vann equivalent use 
           "Q_OF", "outglac", "r_sm_outglac", "gisoil", "misoil","snittT[1]"]
   CSV.write(utfile,DataFrame(simresult,:auto), delim = ';', header=toptitles)                
   !silent && println("M= ", round(M[1],digits=2)," ",round(M[2],digits =2))
-  !silent && println("k_P= ", round(k[1,1],digits=6)," ",round(k[1,2],digits=6)," ",round(k[1,3],digits=6)," ",round(k[1,4],digits=6)," ",round(k[1,5],digits=6))
+  !silent && println("k_P= ", round(k[1,1],digits=6)," ",round(k[2,1],digits=6)," ",round(k[3,1],digits=6)," ",round(k[4,1],digits=6)," ",round(k[5,1],digits=6))
   if (area[2] >0.0)
-   !silent && println("k_IP= ", round(k[2,1],digits=6)," ",round(k[2,2],digits=6)," ",round(k[2,3],digits=6)," ",round(k[2,4],digits=6)," ",round(k[2,5],digits=6))
+   !silent && println("k_IP= ", round(k[1,2],digits=6)," ",round(k[2,2],digits=6)," ",round(k[3,2],digits=6)," ",round(k[4,2],digits=6)," ",round(k[5,2],digits=6))
   end
   !silent && println("Mean(Qsim)= ",meansim)
  end           
