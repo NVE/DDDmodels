@@ -65,6 +65,7 @@ catchment will be skipped.
 
 ## 5. Possible improvements
 
+- avoid reversing STempvec and optimise related calculations
 - Check that functions are type-stable to avoid performance losses.
 - improve upon `ptqinn` data structure for faster data access in time loop (now time steps are rows)
 - Test alternatives to DataFrames to ensure type stability (e.g. DimensionalData, TypedTables, TimeArrays)

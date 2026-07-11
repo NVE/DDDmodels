@@ -88,17 +88,20 @@ function runDDD(paths_ptq::Dict{String,String}, params_hyd::Vector{Float64}, par
     Threads.@threads for p in collect(eachindex(paths_ptq))
         path_out_series = joinpath(dir_out, "series_$(p).csv")
         path_out_r2 = joinpath(dir_out, "r2_$(p).csv")
-        ptq_in = loadPTQ(paths_ptq[p])
+        timesteps, precipitation, temperature, discharge = loadPTQ(paths_ptq[p])
         Random.seed!(0)
-        kge_score[p] = ddd(ptq_in, 1, params_hyd, params_all, path_out_series, path_out_r2, 0, 0, 0, spinup, true)[3]
+        kge_score[p] = ddd(timesteps, precipitation, temperature, discharge, 1, params_hyd,
+                           params_all, path_out_series, path_out_r2, 0, 0, 0, spinup, true)[3]
     end
     println(" -> KGE (period): ", join(["$(round(v, digits=4)) ($k)" for (k, v) in kge_score], ", "))
 end
 
-function makeEvaluator(ptq_in::DataFrame, parameters_all::Vector{Float64}, spinup::Int, path_r2::String)
+function makeEvaluator(timesteps::Vector{DateTime}, precipitation::Matrix{Float64}, temperature::Matrix{Float64},
+                       discharge::Vector{Float64}, parameters_all::Vector{Float64}, spinup::Int, path_r2::String)
     function wrapper(hydpar::Vector{Float64})
         Random.seed!(0)
-        kge_score = ddd(ptq_in, 1, hydpar, parameters_all, "", path_r2, 0, 0, 1, spinup, true)[3]
+        kge_score = ddd(timesteps, precipitation, temperature, discharge,
+                        1, hydpar, parameters_all, "", path_r2, 0, 0, 1, spinup, true)[3]
         return 1. - kge_score
     end
 end
@@ -185,8 +188,9 @@ function calibrateMultipleCatchments(path_toml::String)
         dir_out_cal = mkpath(joinpath(dir_out, "calibrated"))
         dir_log_cal = mkpath(joinpath(dir_out_cal, "log"))
         template_path_r2 = joinpath(dir_log_cal, "r2.csv")
-        ptq_in = loadPTQ(paths_ptq["calibration"])
-        evaluator = makeEvaluator(ptq_in, parameters.values, settings.spinup, template_path_r2)
+        timesteps, precipitation, temperature, discharge = loadPTQ(paths_ptq["calibration"])
+        evaluator = makeEvaluator(timesteps, precipitation, temperature, discharge,
+                                  parameters.values, settings.spinup, template_path_r2)
         print("\tCalibration started on ", Dates.format(now(), "yyyy-mm-dd HH:MM"))
         res = redirect_stdio(stdout=devnull, stderr=devnull) do
             bboptimize(evaluator; SearchRange=ranges, MaxSteps=settings.steps_max, TraceMode=:silent, SaveTrace=true, NThreads=num_threads)
@@ -210,7 +214,7 @@ function inputSingleCatchmentRun(path_toml::String, id::String, period::String)
     settings = from_toml(SettingsCalibration, path_toml)
     # PTQ input
     path_ptq = pathsPTQ(id, settings)[period]
-    ptq_in = loadPTQ(path_ptq)
+    timesteps, precipitation, temperature, discharge = loadPTQ(path_ptq)
     # Load initial parameters
     path_inipar = replace(settings.template_path_inipar, "<CATCHMENT>" => id)
     parameters = ParameterSet(path_inipar)
@@ -220,5 +224,6 @@ function inputSingleCatchmentRun(path_toml::String, id::String, period::String)
     path_out_r2 = joinpath(dir_out, "r2_$(id)_$(period).csv")
     println("Input prepared for single run with output in ", dir_out)
     # Return input required for running DDD
-    return (ptq_in, 1, getHydrologicParameters(parameters), parameters.values, path_out_series, path_out_r2, 0, 0, 0, settings.spinup, true)
+    return (timesteps, precipitation, temperature, discharge, 1, getHydrologicParameters(parameters),
+            parameters.values, path_out_series, path_out_r2, 0, 0, 0, settings.spinup, true)
 end

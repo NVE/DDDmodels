@@ -12,13 +12,14 @@ println("Test output in ", dir_out)
 path_out_series = joinpath(dir_out, "output_series_12.70.csv")
 path_out_r2 = joinpath(dir_out, "output_r2_12.70.csv")
 # Load PTQ
-ptq_in = loadPTQ(path_ptq)
+timesteps, precipitation, temperature, discharge = loadPTQ(path_ptq)
 # Load output and benchmark time series
 output = CSV.read(path_out_series, DataFrame)
 benchmark = CSV.read(joinpath(dir_data, "benchmark_series_12.70.csv"), DataFrame)
 # Test
 @testset "Check simulated output against benchmark for 12.70" verbose=true begin
     Random.seed!(0)
-    ddd(ptq_in, 1, getHydrologicParameters(parameters), parameters.values, path_out_series, path_out_r2, 0, 0, 0, 365, true)
+    ddd(timesteps, precipitation, temperature, discharge, 1, getHydrologicParameters(parameters),
+        parameters.values, path_out_series, path_out_r2, 0, 0, 0, 365, true)
     @test isapprox(output, benchmark)
 end

@@ -12,7 +12,7 @@ function LayerCapacityUpdate(Layers, nodaysvector, Magkap, NoL)
 ddistx = zeros(NoL)
 
 #Below are the states (in mm) for each saturation level
-for j in reverse(1:NoL)
+for j in 1:NoL
                                       #state after this timesteps' water is gone. amount of water  in mm, minus current timestep
   aktMag = sum(Layers[2:nodaysvector[j],j])
 

@@ -48,7 +48,6 @@ include("GrWPoint.jl")
 include("RiverPoint.jl")
 # EB and Snow Routines
 include("NedbEBGlac_debug04072022.jl")
-include("SnowpackTemp.jl")
 include("TempstartUpdate.jl")
 include("SmeltEBGlac_debug04072022.jl")
 include("CloudCoverGlac_debug04072022.jl")
@@ -86,20 +85,29 @@ include("KGE_ths.jl")
 function DDDAllTerrain(Gpar::Vector{Float64}, startsim::Int, tprm::Vector{Float64}, prm::DataFrame, ptqfile::String, utfile::String,
                        r2fil::String, modstate::Int, savestate::Int, kal::Int, spinuptime::Int, silent::Bool=false)
     # Read input file (ptq): time steps and elevation zones
-    ptqinn = loadPTQ(ptqfile)
+    timesteps, precipitation, temperature, discharge = loadPTQ(ptqfile)
     # Run DDD
-    ddd(ptqinn, startsim, tprm, prm[:,"val"], utfile, r2fil, modstate, savestate, kal, spinuptime, silent)
+    ddd(timesteps, precipitation, temperature, discharge, startsim, tprm, prm[:,"val"],
+        utfile, r2fil, modstate, savestate, kal, spinuptime, silent)
 end
 
 
 function loadPTQ(path::String)
-    CSV.read(path, DataFrame, header=["yr","mnt","day","hr","min","p01","p02","p03","p04","p05","p06","p07","p08","p09","p10",
-            "t01","t02","t03","t04","t05","t06","t07","t08","t09","t10","q"])
+    df = CSV.read(path, DataFrame, header=["yr","mnt","day","hr","min",
+                                           "p01","p02","p03","p04","p05","p06","p07","p08","p09","p10",
+                                           "t01","t02","t03","t04","t05","t06","t07","t08","t09","t10",
+                                           "q"])
+    timesteps = Dates.DateTime.(df.yr, df.mnt, df.day, df.hr, df.min)
+    precipitation = Matrix{Float64}(permutedims(df[:,6:15])) # dimensions: elevation, time 
+    temperature = Matrix{Float64}(permutedims(df[:,16:25])) # dimensions: elevation, time 
+    discharge = Vector{Float64}(df.q)
+    return timesteps, precipitation, temperature, discharge
 end
 
 
-function ddd(ptqinn::DataFrame, startsim::Int, tprm::Vector{Float64}, prm::Vector{Float64},
-             utfile::String, r2fil::String, modstate::Int, savestate::Int, kal::Int, spinuptime::Int, silent::Bool)
+function ddd(timesteps::Vector{DateTime}, precipitation::Matrix{Float64}, temperature::Matrix{Float64}, discharge::Vector{Float64},
+             startsim::Int, tprm::Vector{Float64}, prm::Vector{Float64}, utfile::String, r2fil::String, modstate::Int,
+             savestate::Int, kal::Int, spinuptime::Int, silent::Bool)
 DDA = 6  # number of landscape types with distance distribution
 # DDA=1 Permeable (P) areas
 # DDA=2 ImPermeable (IP) areas
@@ -281,7 +289,7 @@ if(Ltyfrac[2] == 0.0)
   Lty = 1
 end 
 
-days = Int(length(ptqinn.yr))    # Length of timeseries
+days = length(timesteps) # Length of timeseries
 
 MAD2 = exp(-4.59 + 1.135*log(meandailyP)+0.97*log(totarea/1000000)-0.0603*meandailyT + 0.053*log(snfjell)-0.00014*hfelt[5])  # R2 = 0.99, Area in km2, Snfjell in fraction   
 if (Ltyfrac[5] > 0.05 ) #Fraction of glaciers
@@ -295,9 +303,10 @@ n0 = unitsnow*a0                        # shape parameter of unit snow
 gtcel = 0.99                            # threshold qunatile for groundwater capacity -> Overland flow
 CFR = 2.5*(Timeresinsec/86400)*0.0833   # Fixed as 1/12 of estimate of CX= 2.5 for 24 hours 
 len = Int(5*(86400/Timeresinsec))       # number of timestepes to spin up the model. Recommended to use timesteps equal to a minimum of 5 days to estimate the snowpack temperature.)
+weights_st = collect(1:len) / (len*(len+1)/2) # weights for computing snowpack skin temperature from air temperature of last "len" time steps
 
 startsim = startsim + len               # taking into account estimating snowpack temperature
-tempstart = Matrix{Float64}(ptqinn[(startsim-len+1):startsim,16:25])  # matrix for storing temperatures when starting from states
+tempstart = temperature[:,(startsim-len+1):startsim] # matrix for storing temperatures when starting from states
 
 Pa[1:10] = 101.3*((293 .- 0.0065.*hfelt[1:10])/293.0).^5.26     # Air pressure as a function of height Zhu et al. 2012 and Stoy et al, 2018
 MPa = mean(Pa)
@@ -485,35 +494,32 @@ end
 ############################################################################
 for i in startsim:days
 
-  dato = Dates.DateTime(ptqinn.yr[i],ptqinn.mnt[i], ptqinn.day[i], ptqinn.hr[i],ptqinn.min[i]) #date
-  #println(i," ",dato)      
-         
-  hr = ptqinn.hr[i] 
-  DN = Dates.dayofyear(dato)           #daynumber        
+  dato = timesteps[i]
+  hr = hour(dato) 
+  DN = dayofyear(dato)           #daynumber        
   
   #Reads Precipitation and temperature for each elevation zone   
-  htemp = Vector{Float64}(ptqinn[i,16:25])
-  hprecip = Vector{Float64}(ptqinn[i,6:15])
+  htemp = temperature[:,i]
+  hprecip = precipitation[:,i]
 
   meanprecip = mean(hprecip)
   meantemp =  mean(htemp)
   TempstartUpdate!(tempstart,htemp, len) #Updating the tempstart with this timesteps temperature 
+
+  # Snowpack skin temperature as (linearly decreasing) weighted mean of air temperature over past "len" time steps (cannot be >= 0)
+  skintempsnow = vec(min.(sum(weights_st' .* tempstart, dims=2), 0.))
  
   for Lst in 1:Lty     # landscape types, one snow regime for each landscape type P and IP. The other Lty have no snow
 
     for idim in 1:hson # elevation zones  
 
-      @views STempvec = reverse(tempstart[:,idim]) # Temperature vector for estimating snowpack temperatur
       CGLAC = 0.0 # dummy, has no role in this version, energy balance is used
       CX = 0.0    # dummy, has no role in this version, energy balance is used
       TS = 0.0    # dummy, has no role in this version, energy balance is used
 
-      #Estmates the mean snowpack temperature
-     snittT[Lst] = SnowpackTemp(STempvec) 
-
       #Calculates Rain vs Snow and Snow/Glaciermelt
       WaterIn = NedbEB(CFR, DN, hprecip[idim], htemp[idim], spd[idim,Lst], Timeresinsec, TX, pkorr ,skorr,
-                       hr, u, Pa[idim], CGLAC, CX, TS, taux[Lst], snittT[Lst], phi, thi)
+                       hr, u, Pa[idim], CGLAC, CX, TS, taux[Lst], skintempsnow[idim], phi, thi)
 
       #From WaterIn per elevation zone:         
       PS[idim,Lst] = WaterIn[1]        # Precipitation as snow
@@ -712,24 +718,6 @@ for i in startsim:days
   if (Lty > 1) && (ddist[1,2] * outx[2] > 0)
     OverlandFlowDynamicDD!(k[:,2], ddist[:,2], outx[2], layerUH_IP, nodaysvector[:,2], NoL, Ltymid[2], CritFlux[2], Timeresinsec)
   end
-#  OFDDD = 1 # CHECK AND DELETE!
-#  if (OFDDD ==1)  
-#    for Lst in 1:Lty
-#     if ddist[1,Lst] * outx[Lst] > 0 # overland flow for LST =1 (P) is confirmed for this event
-#      
-#      if(Lst==1)
-#        layerUH_P[1, 1:nodaysvector[1,1]] = OverlandFlowDynamicDD(k[Lst,1:NoL],ddist[Lst,1:NoL],outx[Lst], layerUH_P,
-#                    nodaysvector[Lst,1:NoL],NoL, Ltymid[Lst], CritFlux[Lst], Timeresinsec)
-#       end              
-#       if(Lst==2)
-#         if(area[2] > 0.0)
-#           layerUH_IP[1, 1:nodaysvector[2,1]] = OverlandFlowDynamicDD(k[Lst,],ddist[Lst,],outx[Lst], layerUH_IP,
-#                    nodaysvector[Lst,1:NoL],NoL, Ltymid[Lst], CritFlux[Lst], Timeresinsec)
-#         end
-#       end
-#     end
-#    end
-#  end
 
   ##Waterbalance calculations
   #RinnP =sum(QRivxP[2:noDT])*(Timeresinsec*1000/area[1]) # P water stored in RN from last TimeSep
@@ -745,10 +733,10 @@ for i in startsim:days
   #GDT_P = sum(LayersP[1:NoL,1]) + sum(ddist[1,1:NoL] .* outx[1] .* layerUH_P[1:NoL,1])      #groundwater to be discharged into the rivernetwork + this timesteps contribution
   #GDT_IP = sum(LayersIP[1:NoL,1]) + sum(ddist[2,1:NoL] .* outx[2] .* layerUH_IP[1:NoL,1])   #groundwater to be discharged into the rivernetwork 
   if area[1] > 0
-    GDT_P = sum(LayersP[1,:]) + sum(ddist[:,1] .* outx[1] .* layerUH_P[1,:]) # groundwater to be discharged into the rivernetwork + this timesteps contribution
+    @views GDT_P = sum(LayersP[1,:]) + outx[1] * sum(ddist[:,1] .* layerUH_P[1,:]) # groundwater to be discharged into the rivernetwork + this timesteps contribution
   end
   if area[2] > 0
-    GDT_IP = sum(LayersIP[1,:]) + sum(ddist[:,2] .* outx[2] .* layerUH_IP[1,:])   #groundwater to be discharged into the rivernetwork 
+    @views GDT_IP = sum(LayersIP[1,:]) + outx[2] * sum(ddist[:,2] .* layerUH_IP[1,:])   #groundwater to be discharged into the rivernetwork 
   end 
   if area[3] > 0
    GDT_Bog =  BogLayers[1]+outbog*UHbog[1]         #bogwater to be discharged into the rivernetwork + this timesteps contribution
@@ -757,10 +745,10 @@ for i in startsim:days
   #Overland flow
   GDT_OF = Ltyfrac[1]*(LayersP[1,1]+(ddist[1,1]*outx[1]*layerUH_P[1,1]))
   if area[2] > 0
-    GDT_OF  = GDT_OF +Ltyfrac[2]*(LayersIP[1,1]+(ddist[1,2]*outx[2]*layerUH_IP[1,1]))
+    GDT_OF  += Ltyfrac[2]*(LayersIP[1,1]+(ddist[1,2]*outx[2]*layerUH_IP[1,1]))
   end  
   if area[3] > 0
-    GDT_OF  = GDT_OF + Ltyfrac[3]*(BogLayers[1]+outbog*UHbog[1])# Overland flow part
+    GDT_OF  += Ltyfrac[3]*(BogLayers[1]+outbog*UHbog[1])# Overland flow part
   end         
             
   #Updating the saturation Layers
@@ -856,8 +844,8 @@ for i in startsim:days
    
   if (kal==0)
   #Assigning outdata to vector, one vector for each timestep
-   simresult[1:5,i] = [ptqinn.yr[i],ptqinn.mnt[i],ptqinn.day[i],ptqinn.hr[i],ptqinn.min[i]]
-   simresult[6:9,i] = [round(meanprecip,digits= 3),round(meantemp,digits = 3), ptqinn.q[i],round(Qm3s,digits=6)]
+   simresult[1:5,i] = [year(dato), month(dato), day(dato), hour(dato), minute(dato)]
+   simresult[6:9,i] = [round(meanprecip,digits= 3),round(meantemp,digits = 3), discharge[i], round(Qm3s,digits=6)]
    simresult[10:13,i] = [round(P_Qm3s,digits = 6),round(IP_Qm3s,digits = 6), round(Bog_Qm3s,digits = 6),round(middelsca[1],digits=3)]
    simresult[14:16,i] = [round(snomag[1],digits = 6), round(lyrs[1],digits = 6),round(lyrs[2],digits = 6)]
    simresult[17:20,i] = [round(totdef[1],digits=2), round(totdef[2],digits=2),round(sm[1],digits=6),round(sm[2],digits=6)]
@@ -878,7 +866,7 @@ for i in startsim:days
 #---------------------------------------------------------------------------------------------------
 
 # Updating the  temperature matrix for estimating snowpack temperature
- tempstart = Matrix{Float64}(ptqinn[(i-len+1):i,16:25])  # assigning temperature values, i is always larger than len
+ tempstart = temperature[:,(i-len+1):i]  # assigning temperature values, i is always larger than len
 
 # Saving states, SWE, sm, Layers, etc in a JLD2 file
 if(i == (38165 + len) && savestate == 1) #  This number is ONE timestep less than startsim, i.e. the statefile is for the timestep before startsim 
@@ -901,11 +889,11 @@ end # end of loop for number of timesteps in timeseries
 wwater = 1.0*persons*(140.0 + 42.0)/(86400.0*1000.0)# norsk vann equivalent use in L/day add 30% leakage from water net
 
  meansim = mean(wwater .+ qberegn[skillstart:days2])
- meanobs = mean(ptqinn.q[skillstart:days2])
+ meanobs = mean(discharge[skillstart:days2])
 
 # Computing skillscores NSE, kge, bias
- KGE, beta = (kge((wwater .+ qberegn[skillstart:days2]),ptqinn.q[skillstart:days2]))
- NSE = (nse((wwater .+ qberegn[skillstart:days2]),ptqinn.q[skillstart:days2]))
+ KGE, beta = (kge((wwater .+ qberegn[skillstart:days2]), discharge[skillstart:days2]))
+ NSE = (nse((wwater .+ qberegn[skillstart:days2]), discharge[skillstart:days2]))
  bias = beta #(meansim/meanobs)
 #bias = (meansim/meanobs)
 
@@ -930,6 +918,6 @@ wwater = 1.0*persons*(140.0 + 42.0)/(86400.0*1000.0)# norsk vann equivalent use 
   !silent && println("Mean(Qsim)= ",meansim)
  end           
 
-return ptqinn.q, qberegn, KGE,NSE,bias
+return discharge, qberegn, KGE,NSE,bias
 
 end  #end of func
