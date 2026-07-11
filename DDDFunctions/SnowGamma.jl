@@ -164,18 +164,16 @@ function SnowGamma(PRX,PSX,MWX,scax,spdx,wcdx,prox,nsnox,alfax,nyx,alfa0x,ny0x,a
    
         antall = Int(round(nya/alfaa) +1)                  #  How far we need to go (in mm) for the pfd.
         diff = zeros(Float64,antall)  
-        a = zeros(Float64,antall) 
-        s = zeros(Float64,antall)    
         xkrit = zeros(Int,2)
                                        
          smelt = Gamma(nys,1/alfas)                                        
          acc = Gamma(nya,1/alfaa) # Note that R uses alfa whereas Julia uses 1/alfa
          
        for i in 1:antall
-        s[i] = pdf(smelt,i) # PDF; wants the crossing point bewtween dist (s=melt)
-        a[i] = pdf(acc,i)   # PDF; wants the crossing point bewtween dist (a=accumulation)
+        s = pdf(smelt,i) # PDF; wants the crossing point bewtween dist (s=melt)
+        a = pdf(acc,i)   # PDF; wants the crossing point bewtween dist (a=accumulation)
+        diff[i] = a - s
        end        
-        diff[1:antall] = a[1:antall]-s[1:antall]
                                 
         #find crossing
         krysspos = findall(diff .> 0)

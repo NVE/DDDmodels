@@ -65,9 +65,7 @@ catchment will be skipped.
 
 ## 5. Possible improvements
 
-- Allocate grwpointresult and rnpointresult instead of building them incrementally with push!
 - Check that functions are type-stable to avoid performance losses.
-- simresult: set time as second dimension and write to CSV transposed
 - improve upon `ptqinn` data structure for faster data access in time loop (now time steps are rows)
 - Test alternatives to DataFrames to ensure type stability (e.g. DimensionalData, TypedTables, TimeArrays)
   or is it enough with function barrier on loading?
@@ -76,3 +74,8 @@ catchment will be skipped.
 - Sensitivity analysis (e.g. [GlobalSensitivity.jl](https://docs.sciml.ai/GlobalSensitivity/stable/))
 - Use [workspaces](https://pkgdocs.julialang.org/dev/creating-packages/#Test-specific-dependencies)
    to define test- and calibration-specific dependencies.
+
+## 6. Questions
+
+- NewSnowDensityEB.jl: conversion to Fahrenheit (overwriting) propagates to DensityAge.jl via NewSnowSDEB.jl:
+  is it intentional?

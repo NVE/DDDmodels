@@ -27,8 +27,10 @@
 # Running DDD:    It is possible to save model state variables and run the model
 #                 starting from saved state variables
 #----------------------------------------------------------------------------------
+#using Infiltrator
 import Base.Threads: nthreads, threadid
 using CSV
+using Tables
 using DataFrames
 using Distributions
 using LsqFit
@@ -307,11 +309,9 @@ Magkap = zeros(NoL, Lty)
 k = zeros(NoL, Lty)              # subsurface celerities (including that of overland flow) 
 qberegn = zeros(days)            # for calculation of skill scores etc. 
 
-if(kal == 0)
-    simresult = zeros(days,39)        # matrix which into the results are written
+if kal == 0
+    simresult = Matrix{Float64}(undef, 39, days) # matrix which into the results are written
 end 
-
-#grwpointresult <-matrix(0.0, days,29)     # matrix which into the groundwater point results are written
 
 # Areas and weights
 area = Ltyfrac.* totarea                    # areas of differnt Lty, a vector
@@ -446,26 +446,18 @@ end
 
 RNwdelta_d = Ltymax[6]/noDT
 
-mindistant = 25 #number distance interval for each montoing of saturation if you change this you have to edit the push! statement at the end of the run
+mindistant = 25 #number distance interval for each montoing of saturation
 satintP = Int(trunc(Ltymax[1]/mindistant)) #Number of distances from RN for which we will investigate the saturation 
 satintIP = Int(trunc(Ltymax[2]/mindistant)) #Number of distances from RN for which we will investigate the saturation 
 rnint = Int(trunc(Ltymax[6]/mindistant)) #Number of distances from outlet for which we will investigate the water in the RN
-mindist = zeros(mindistant)
+mindist = satintIP .* collect(1:mindistant) # Distances at which we will monitor the simulated saturation
+rndist = rnint .* collect(1:mindistant) # Distances at which we will monitor the simulated water in the RN
 
 #Distributed groundwater Pareas
-grwpointresult = DataFrame(Datetime = DateTime[]) # specifyinbg a result dataframe into the groundwater point results are written
-for i in 1:mindistant
- mindist[i] = i*satintP  # Distances at which we will monitor the simulated saturation
- insertcols!(grwpointresult,(i+1), string("gw",i)=> 0.0) 
-end
+grwpointresult = Matrix{Float64}(undef, mindistant, days) # allocate groundwater point results matrix
 
-rndist = zeros(mindistant) # distances in RN
 #Distributed Water in river network
-rnpointresult = DataFrame(Datetime = DateTime[]) # specifying a result dataframe wher the rn point results are written
-for i in 1:mindistant
- rndist[i] = i*rnint  # Distances at which we will monitor the simulated water in the RN
- insertcols!(rnpointresult,(i+1), string("rn",i)=> 0.0) 
-end
+rnpointresult = Matrix{Float64}(undef, mindistant, days) # allocate rn point results matrix
 
 #States
  if(modstate == 1) 
@@ -864,28 +856,22 @@ for i in startsim:days
    
   if (kal==0)
   #Assigning outdata to vector, one vector for each timestep
-   simresult[i, 1:5] = [ptqinn.yr[i],ptqinn.mnt[i],ptqinn.day[i],ptqinn.hr[i],ptqinn.min[i]]
-   simresult[i, 6:9] = [round(meanprecip,digits= 3),round(meantemp,digits = 3), ptqinn.q[i],round(Qm3s,digits=6)]
-   simresult[i, 10:13] = [round(P_Qm3s,digits = 6),round(IP_Qm3s,digits = 6), round(Bog_Qm3s,digits = 6),round(middelsca[1],digits=3)]
-   simresult[i, 14:16] = [round(snomag[1],digits = 6), round(lyrs[1],digits = 6),round(lyrs[2],digits = 6)]
-   simresult[i, 17:20] = [round(totdef[1],digits=2), round(totdef[2],digits=2),round(sm[1],digits=6),round(sm[2],digits=6)]
-   simresult[i, 21:24] = [round(ea[1],digits=6),round(ea[2],digits=6),round(Qmm,digits=6),round(smbog,digits=6)]
-   simresult[i, 25:28] = [round(eabog,digits=6),round(qmm_state,digits=6), round(boglyrs,digits=6), round(middelsca[2],digits=3)]
-   simresult[i, 29:32] = [round(snomag[2],digits= 6), round(wcs[1],digits=6),round(wcs[2],digits=6),round(subsurface[1],digits=6)]
-   simresult[i, 33:34] = [round(subsurface[2],digits=6),round(OF_Qm3s,digits=6)]
-   simresult[i, 35:36] = [round(outglac,digits=2), round(m_r_onglac,digits=2)]
-   simresult[i, 37:39] = [round(GIsoil[1], digits=4),round(misoil[1], digits=4),round(snittT[1], digits=4)]
+   simresult[1:5,i] = [ptqinn.yr[i],ptqinn.mnt[i],ptqinn.day[i],ptqinn.hr[i],ptqinn.min[i]]
+   simresult[6:9,i] = [round(meanprecip,digits= 3),round(meantemp,digits = 3), ptqinn.q[i],round(Qm3s,digits=6)]
+   simresult[10:13,i] = [round(P_Qm3s,digits = 6),round(IP_Qm3s,digits = 6), round(Bog_Qm3s,digits = 6),round(middelsca[1],digits=3)]
+   simresult[14:16,i] = [round(snomag[1],digits = 6), round(lyrs[1],digits = 6),round(lyrs[2],digits = 6)]
+   simresult[17:20,i] = [round(totdef[1],digits=2), round(totdef[2],digits=2),round(sm[1],digits=6),round(sm[2],digits=6)]
+   simresult[21:24,i] = [round(ea[1],digits=6),round(ea[2],digits=6),round(Qmm,digits=6),round(smbog,digits=6)]
+   simresult[25:28,i] = [round(eabog,digits=6),round(qmm_state,digits=6), round(boglyrs,digits=6), round(middelsca[2],digits=3)]
+   simresult[29:32,i] = [round(snomag[2],digits= 6), round(wcs[1],digits=6),round(wcs[2],digits=6),round(subsurface[1],digits=6)]
+   simresult[33:34,i] = [round(subsurface[2],digits=6),round(OF_Qm3s,digits=6)]
+   simresult[35:36,i] = [round(outglac,digits=2), round(m_r_onglac,digits=2)]
+   simresult[37:39,i] = [round(GIsoil[1], digits=4),round(misoil[1], digits=4),round(snittT[1], digits=4)]
   end
-  #grwpointresult[i, 1:29] <- c(ptqinn$yr[i],ptqinn$mnt[i],ptqinn$day[i],ptqinn$hr[i], round(GrWPoint[1:25],2))
-                                
  
-  push!(grwpointresult,(dato, GrWP[1],GrWP[2],GrWP[3],GrWP[4],GrWP[5],GrWP[6],GrWP[7],GrWP[8],GrWP[9],GrWP[10],GrWP[11],GrWP[12],GrWP[13],
-  GrWP[14],GrWP[15],GrWP[16],GrWP[17],GrWP[18],GrWP[19],GrWP[20],GrWP[21],GrWP[22],GrWP[23],GrWP[24],GrWP[25]))  #writing groundwater soilmoisure to a DF [mm]
-  
-  push!(rnpointresult,(dato, RnP[1],RnP[2],RnP[3],RnP[4],RnP[5],RnP[6],RnP[7],RnP[8],RnP[9],RnP[10],RnP[11],RnP[12],RnP[13],
-  RnP[14],RnP[15],RnP[16],RnP[17],RnP[18],RnP[19],RnP[20],RnP[21],RnP[22],RnP[23],RnP[24],RnP[25]))  #writing water in RN to a DF [m3/s]
-  
-  qberegn[i] = Qm3s      #Simulated runoff for current timestep. Used for skillscores etc.
+  grwpointresult[:,i] = GrWP # groundwater soil moisure [mm]
+  rnpointresult[:,i] = RnP # water in RN [m3/s]
+  qberegn[i] = Qm3s  #Simulated runoff for current timestep. Used for skillscores etc.
 
   
 
@@ -935,7 +921,7 @@ wwater = 1.0*persons*(140.0 + 42.0)/(86400.0*1000.0)# norsk vann equivalent use 
   toptitles = ["Yr","Mnt","Day", "Hr","Min","Precip","Temp","Qobs","Qsim","Q_P","Q_IP","Q_Bogs","SCA_P","SWE_P","SS+_P", "SS+_IP","SSDef_P","SSDef_IP",
           "SM_P","SM_IP","Ea_P","Ea_IP","Qmm","SMBog","EaBog","qmm_state","Boglyrs","SCA_IP", "SWE_IP","WCS_P", "WCS_IP","SS_P", "SS_IP",
           "Q_OF", "outglac", "r_sm_outglac", "gisoil", "misoil","snittT[1]"]
-  CSV.write(utfile,DataFrame(simresult,:auto), delim = ';', header=toptitles)                
+  CSV.write(utfile, Tables.table(permutedims(simresult)), delim = ';', header=toptitles)
   !silent && println("M= ", round(M[1],digits=2)," ",round(M[2],digits =2))
   !silent && println("k_P= ", round(k[1,1],digits=6)," ",round(k[2,1],digits=6)," ",round(k[3,1],digits=6)," ",round(k[4,1],digits=6)," ",round(k[5,1],digits=6))
   if (area[2] >0.0)

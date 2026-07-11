@@ -9,7 +9,7 @@
 
 function LayerCapacityUpdate(Layers, nodaysvector, Magkap, NoL)
 
-ddistx = Vector{Float64}(undef, NoL)
+ddistx = zeros(NoL)
 
 #Below are the states (in mm) for each saturation level
 for j in reverse(1:NoL)
