@@ -9,19 +9,15 @@
 
 function LayerCapacityUpdate(Layers, nodaysvector, Magkap, NoL)
 
-ddistx = zeros(NoL)
+ddistx = Vector{Float64}(undef, NoL)
 
 #Below are the states (in mm) for each saturation level
-for j in 1:NoL
+@inbounds for j in 1:NoL
                                       #state after this timesteps' water is gone. amount of water  in mm, minus current timestep
-  aktMag = sum(Layers[2:nodaysvector[j],j])
-
-  if aktMag < Magkap[j]
-   ddistx[j] = Magkap[j] - aktMag
-  end
+  aktMag = sum(@view(Layers[2:nodaysvector[j],j]); init=0.0)
+  ddistx[j] = max(Magkap[j] - aktMag, 0.0)
         
 end
 
 return ddistx  # ddistx informs on current capacity for each level in mm.
 end
-
