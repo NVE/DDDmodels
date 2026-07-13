@@ -7,7 +7,7 @@
 #     Revised: 4.7.2019
 #--------------------------------------------------------------------------
 
-function LayerEvap(Layers, nodaysvector, ea_S, layerUH, NoL)
+function LayerEvap!(Layers, nodaysvector, ea_S, layerUH, NoL)
   
   #Layers = [1.0 2.0 0.0 0.0 0.0; 2.0 3.0 4.0 0.0 0.0; 3.0 4.0 5.0 6.0 0.0; 2.0 2.0 2.0 2.0 0.35]
   #NoL = 4
@@ -40,23 +40,22 @@ function LayerEvap(Layers, nodaysvector, ea_S, layerUH, NoL)
         if differ > 0 # the Layer has more water than is to be evaporated > ea_S                
             ea_excess = 0.0
             @views evapUH = redea .* layerUH[1:nodaysvector[j],j]
-            @views newLayer = Layers[1:nodaysvector[j],j] .- evapUH[1:nodaysvector[j]]  
 
-            tull = findall(newLayer .< 0.0)
+            @views tull = findall(Layers[1:nodaysvector[j],j] .< evapUH[1:nodaysvector[j]])
             if length(tull) > 0
               x = tull    # locate which boxes have not enough water to evaporate
               ea_excess = sum(evapUH[x]) # the amount which is not evaporated
               evapUH[x] .= 0.0            # the identified boxes have zero instead of negative values
-              @views newLayer = Layers[1:nodaysvector[j],j] .- evapUH[1:nodaysvector[j]] # updates so that everthing is positive
             end   
+            Layers[1:nodaysvector[j],j] .-= evapUH[1:nodaysvector[j]]
 
-            if round(aktMag - sum(newLayer) - redea + ea_excess; digits=8) != 0
-              avvik = round(aktMag - sum(newLayer) - redea + ea_excess; digits= 8)
+            if round(aktMag - sum(Layers[1:nodaysvector[j],j]) - redea + ea_excess; digits=8) != 0
+              avvik = round(aktMag - sum(Layers[1:nodaysvector[j],j]) - redea + ea_excess; digits= 8)
               println("Hei, feil i fordampning", avvik)
             end  
             redea = 0.0
         else
-          newLayer = zeros(nodaysvector[j])
+          Layers[1:nodaysvector[j],j] .= 0.
           if j == NoL 
               redea = 0.0
           else
@@ -65,7 +64,6 @@ function LayerEvap(Layers, nodaysvector, ea_S, layerUH, NoL)
           #println(newLayer)
         end
         #println(total_layers_last)       
-        Layers[1:nodaysvector[j],j] .= newLayer  # updating the actual layer
         #println(sum(Layers))
         #println(total_layers_last)    
       else                           # sumLayers == 0    
@@ -85,5 +83,5 @@ function LayerEvap(Layers, nodaysvector, ea_S, layerUH, NoL)
 #println(ea)
 #println(total_layers_last)
 #println(sum(Layers))                                   
-  return Layers, ea
+  return ea
 end

@@ -84,3 +84,4 @@ catchment will be skipped.
   computing `skintempsnow`. Is it needed to restart the model from a state file? Can it be avoided by loading
   temperature time series further back in time?
 - LayerEvap.jl: reset evapUH to 0 where evapUH >= Layers. Why not Layers set to 0?
+  Why `if sum(Layers) > 0` on each layer's iteration?

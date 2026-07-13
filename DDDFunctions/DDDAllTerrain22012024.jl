@@ -319,7 +319,7 @@ k = zeros(NoL, Lty)              # subsurface celerities (including that of over
 qberegn = zeros(days)            # for calculation of skill scores etc. 
 
 if kal == 0
-    simresult = Matrix{Float64}(undef, 39, days) # matrix which into the results are written
+    simresult = zeros(39, days) # matrix which into the results are written
 end 
 
 # Areas and weights
@@ -463,10 +463,10 @@ mindist = satintIP .* collect(1:mindistant) # Distances at which we will monitor
 rndist = rnint .* collect(1:mindistant) # Distances at which we will monitor the simulated water in the RN
 
 #Distributed groundwater Pareas
-grwpointresult = Matrix{Float64}(undef, mindistant, days) # allocate groundwater point results matrix
+grwpointresult = zeros(mindistant, days) # allocate groundwater point results matrix
 
 #Distributed Water in river network
-rnpointresult = Matrix{Float64}(undef, mindistant, days) # allocate rn point results matrix
+rnpointresult = zeros(mindistant, days) # allocate rn point results matrix
 
 #States
  if(modstate == 1) 
@@ -644,11 +644,11 @@ for i in startsim:days
     
     #calculating additional (ea_S) evapotranspiration directly from Layers
     if area[1] > 0
-      LayersP, ea_S[1] = LayerEvap(LayersP, nodaysvector[:,1], ea_S[1], layerUH_P, NoL)
+      ea_S[1] = LayerEvap!(LayersP, nodaysvector[:,1], ea_S[1], layerUH_P, NoL)
       ea[1] = ea_sm[1] + ea_S[1]
      end
      if area[2] > 0
-      LayersIP, ea_S[2] = LayerEvap(LayersIP, nodaysvector[:,2], ea_S[2], layerUH_IP, NoL)
+      ea_S[2] = LayerEvap!(LayersIP, nodaysvector[:,2], ea_S[2], layerUH_IP, NoL)
       ea[2] = ea_sm[2] + ea_S[2] # adding evapotranspiration from sm (first) and Layers (second)
      end 
        
