@@ -308,7 +308,7 @@ weights_st = collect(1:len) / (len*(len+1)/2) # weights for computing snowpack s
 startsim = startsim + len               # taking into account estimating snowpack temperature
 tempstart = temperature[:,(startsim-len+1):startsim] # matrix for storing temperatures when starting from states
 
-Pa[1:10] = 101.3*((293 .- 0.0065.*hfelt[1:10])/293.0).^5.26     # Air pressure as a function of height Zhu et al. 2012 and Stoy et al, 2018
+Pa .= 101.3*((293 .- 0.0065.*hfelt)/293.0).^5.26     # Air pressure as a function of height Zhu et al. 2012 and Stoy et al, 2018
 MPa = mean(Pa)
 
 #vectors and matrixes
@@ -698,8 +698,8 @@ for i in startsim:days
    # end
   
   #Estimating input to Layers according to capacity
-  for Lst in 1:Lty  
-   ddist[:,Lst] = GrvInputDistributionICap(outx[Lst], NoL, ddistx[:,Lst], ddist[:,Lst], ICap[Lst])
+  @views for Lst in 1:Lty  
+   GrvInputDistributionICap!(outx[Lst], NoL, ddistx[:,Lst], ddist[:,Lst], ICap[Lst])
   end
   
   #We need to include OF due to exceeeded infiltration capacity and UPDATE dist and outx. ddist will distribute outx taking into account both sat and inf excess
@@ -788,33 +788,33 @@ for i in startsim:days
   qsimutxOF .= (((GDT_OF/1000)*totarea)/Timeresinsec) .* UHriver   #[m3/s]  # Overland flow. NOT a contribution, just extracted the fraction OF of total runoff
   
   #Total response
-  qsimutx[1:noDT] .= 0.0  
-  if(area[1] > 0.0)                                 # this is written anew for each timestep
-   qsimutx[1:noDT] .= qsimutx[1:noDT] .+ qsimutxP[1:noDT]   #adding contribution from permeable areas
+  qsimutx .= 0.0
+  if area[1] > 0                          # this is written anew for each timestep
+   qsimutx .+= qsimutxP   #adding contribution from permeable areas
   end
-  if(area[2] > 0.0)
-   qsimutx[1:noDT] .= qsimutx[1:noDT] .+ qsimutxIP[1:noDT]  #adding contribution from impermeable areas
+  if area[2] > 0
+   qsimutx .+= qsimutxIP  #adding contribution from impermeable areas
   end
-  if(area[3] > 0.0)
-   qsimutx[1:noDT] .= qsimutx[1:noDT] .+ qsimutxBog[1:noDT] #adding contribution from bogs
+  if area[3] > 0
+   qsimutx .+= qsimutxBog #adding contribution from bogs
   end
 
   #Routing the contributions in the RN
   #Updating the routing in river network total)
-  QRivx, QRD = RiverUpdate(noDT,QRivx,qsimutx)
+  QRD = RiverUpdate!(noDT, QRivx, qsimutx)
   qmm_state = (sum(QRivx)-QRD)*(Timeresinsec*1000/totarea)       # This is also a reservoir [mm], water from todays event is stored for future runoff in the RN, relevant for WB.
                                                                   # Minus QRD since this will be handled in the WB equations
   #Updating the routing in river network Bogs
-  QRivxBog,QRDBog = RiverUpdate(noDT,QRivxBog,qsimutxBog) 
+  QRDBog = RiverUpdate!(noDT, QRivxBog, qsimutxBog) 
     
   #Updating the routing in river network P
-  QRivxP,QRDP = RiverUpdate(noDT,QRivxP,qsimutxP)  # OK OK 5.2.2024
+  QRDP = RiverUpdate!(noDT, QRivxP, qsimutxP)  # OK OK 5.2.2024
     
   #Updating the routing in river network IP
-  QRivxIP,QRDIP = RiverUpdate(noDT,QRivxIP,qsimutxIP) # OK 5.2.2024
+  QRDIP = RiverUpdate!(noDT, QRivxIP, qsimutxIP) # OK 5.2.2024
   
   #Updating the routing in river network OF
-  QRivxOF,QRDOF = RiverUpdate(noDT,QRivxOF,qsimutxOF)
+  QRDOF = RiverUpdate!(noDT, QRivxOF, qsimutxOF)
 
   RnP = RiverPoint(noDT, QRivx, rndist, Ltymax[6]) # returns a vector of m3/s water in the RN at different distance from the outlet
   
@@ -865,8 +865,8 @@ for i in startsim:days
 
 #---------------------------------------------------------------------------------------------------
 
-# Updating the  temperature matrix for estimating snowpack temperature
- tempstart = temperature[:,(i-len+1):i]  # assigning temperature values, i is always larger than len
+# Updating the  temperature matrix for estimating snowpack temperature (COMMENTED OUT AS UNNECESSARY)
+# tempstart = temperature[:,(i-len+1):i]  # assigning temperature values, i is always larger than len
 
 # Saving states, SWE, sm, Layers, etc in a JLD2 file
 if(i == (38165 + len) && savestate == 1) #  This number is ONE timestep less than startsim, i.e. the statefile is for the timestep before startsim 

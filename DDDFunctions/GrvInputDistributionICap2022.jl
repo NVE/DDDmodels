@@ -9,21 +9,23 @@
 ################################################################################################
 
 
-function GrvInputDistributionICap(outx, NoL,ddistx, ddist, ICap)
+function GrvInputDistributionICap!(outx, NoL,ddistx, ddist, ICap)
   
-defi = sum(ddistx[2:NoL])             # deficit in subsurface
+@views defi = sum(ddistx[2:NoL])             # deficit in subsurface
 
-OF   = 0.0
- if(defi < outx)                   # the deficit is less than water input (outx)
+ if defi < outx                   # the deficit is less than water input (outx)
    OF = outx-defi                  # In addition, saturation from below also gives OF
+   redoutx = defi
    #println("OFBelow=",OF)
    #println("outx_OF from below=",outx)
+ else
+   OF = 0.
+   redoutx = outx
  end
-redoutx = outx - OF                 # in case OF is null this is OK, and if OF is greater than null it is also OK since outx is always larger than OF
      
 # outx is reduced sucessively by the layers, starting from the slowest, NoL
     
-ddist = zeros(NoL)
+ddist .= 0.
     
 if(outx > 0.0)
     
@@ -31,14 +33,14 @@ if(outx > 0.0)
       ddist[1] = OF/outx                   # assigning distribution of outx to overland flow layer layer 1
     end
 
-   for j in reverse(2:NoL)                   # Remember NoL is the slowest layer, 1 is the fastest and already accounted for
+   for j in NoL:-1:2                   # Remember NoL is the slowest layer, 1 is the fastest and already accounted for
    
     if(redoutx > 0.0)
     
        differ = ddistx[j]-redoutx
        if (differ < 0)                #i.e the deficit i layer j is less than input, input(outx (redoutx)) > deficit       
          ddist[j] = ddistx[j]/outx    # divide by outx informs us what frafction of outx needed for this layer
-         redoutx = redoutx - ddistx[j] # must reduce  the input correspondingly       
+         redoutx -= ddistx[j] # must reduce  the input correspondingly       
        end
        if (differ >= 0)               # i.e. deficit in layer j is more than input
        
@@ -62,6 +64,5 @@ end #if outx >0.0
 
 #println(ddist*outx)
 #println(sum(ddist))
-return ddist  
 
 end #end of func
