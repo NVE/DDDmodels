@@ -83,3 +83,4 @@ catchment will be skipped.
 - `tempstart` is not necessary to run the model as it can be replaced by `temperature[:,(i-len+1):i]` when
   computing `skintempsnow`. Is it needed to restart the model from a state file? Can it be avoided by loading
   temperature time series further back in time?
+- LayerEvap.jl: reset evapUH to 0 where evapUH >= Layers. Why not Layers set to 0?

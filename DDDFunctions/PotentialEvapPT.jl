@@ -21,5 +21,5 @@ alfa = 1.26                            # constant in Priestly Taylor for humid a
  
 ET = alfa*(delta/(delta+gam))*(SWrad+LA-LT)*(1000/(LaV*rhow))      # [mm/dt] Priestly-Taylor potential evapotranspiration
 
-return ET
+return max(ET, 0.)
 end

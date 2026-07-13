@@ -18,9 +18,9 @@ function GrWPoint(nodaysvector, Tpkt, NoL, Areas, innLayers, totarea, distvec, d
 ant = length(distvec)       # number of groundwater bore hole locations
 grw = zeros(ant)            # vector for storing groundwater values for the current Layer 
 
-for i in 1:(ant-1)  # to be certain we do not go beyond the matrix
+@inbounds for i in 1:(ant-1)  # to be certain we do not go beyond the matrix
   tall = distvec[i]
-  for j in 1:NoL
+  @simd for j in 1:NoL
    h = Int(trunc(tall/delta_d[j])) + 1
    layersmm = innLayers[h,j] * (totarea/Areas[h,j])
    grw[i] += round(layersmm, digits=3) # Sums up Layer_mm for each layer

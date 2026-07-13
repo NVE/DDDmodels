@@ -619,11 +619,7 @@ for i in startsim:days
     #Updating the deficit (for all sub surface layers, NOT overland flow layer) before Evapotranspiration
     for Lst in 1:Lty
       totdef[Lst] = sum(ddistx[2:NoL,Lst]) # This may be negative if input outstrips deficits
-      
       PotEvap[Lst] = PotentialEvapPT(meantemp, MSWrad[Lst], MLA[Lst], MLT[Lst], MPa)
-      if PotEvap[Lst] < 0
-        PotEvap[Lst] = 0.0
-      end
       Def[Lst] = max(totdef[Lst],0)
     end
 	

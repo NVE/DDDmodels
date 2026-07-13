@@ -21,10 +21,10 @@ Update the subsurface water storage `Layers`.
 - `NoL::Int`: number of layers [-]
 """
 function LayerUpdate!(ddist::Vector{Float64}, outx::Float64, Layers::Matrix{Float64}, layerUH::Matrix{Float64}, nodaysvector::Vector{Int}, NoL::Int)
-  @simd for j in 1:NoL
+  @inbounds for j in 1:NoL
     multiplier = ddist[j] * outx
     Layers[1,j] = multiplier * layerUH[1,j]
-    @inbounds for h in 2:nodaysvector[j]
+    @simd for h in 2:nodaysvector[j]
       Layers[h-1,j] = Layers[h,j] + multiplier * layerUH[h,j]
     end
   end
