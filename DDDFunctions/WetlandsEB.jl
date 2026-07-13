@@ -21,10 +21,6 @@
 
 function WetlandsEB(misoil,eatemp,middelsca,smbog,M,ET)
 
-#------------------------------------------------------------------------
-# Initialisering av out
-#-----------------------------------------------------------------------      
-      outxbog = 0.0
 #-------------------------------------------------------------------------
 #  Actual evapotranspiration
 #-------------------------------------------------------------------------
@@ -38,10 +34,10 @@ function WetlandsEB(misoil,eatemp,middelsca,smbog,M,ET)
 #------------------------------------------------------------------------
 #     Updating sm caused by evapotranspiration
 #------------------------------------------------------------------------
-      smbog = smbog-eabog
+      smbog -= eabog
       
       if (smbog < 0) # prevents breaching the water balance, must adjust ea      
-        eabog = eabog + smbog #sm is negative
+        eabog += smbog #sm is negative
         smbog = 0
       end
       
@@ -55,7 +51,7 @@ function WetlandsEB(misoil,eatemp,middelsca,smbog,M,ET)
         smbog = M      
       else      
         outbog = 0
-        smbog = smbog + misoil
+        smbog += misoil
       end 
                                             
 return outbog, smbog, eabog
