@@ -38,7 +38,7 @@ if(swe > 0)
     snowdepth = snowdepth + (newsnow/density_new) - delta_depth # updatet snowdepth due to newsnow
 end
  
-snowdepth = DensityAge(snowdepth,swe,T)  #snowdepth due to ageing 
+DensityAge!(snowdepth,swe,T)  #snowdepth due to ageing 
 
 return snowdepth, density
 end

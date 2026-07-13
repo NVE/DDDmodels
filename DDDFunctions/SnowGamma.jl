@@ -65,11 +65,11 @@ function SnowGamma(PRX,PSX,MWX,scax,spdx,wcdx,prox,nsnox,alfax,nyx,alfa0x,ny0x,a
     
     #Updating the water content in snowpack 
     if (xmw < 0.0)               # Refreezing liquid water in snow, the sum of spt+wct and SCA will not change
-      if ((-1*xmw) < wct)        
+      if -xmw < wct
            wct = wct + xmw       # update wct, reduces water content in snow, NB xmv is negative
            spt = spt - xmw       # update, increases spt, reduces wct 
       end
-      if ((-1*xmw) >= wct)
+      if -xmw >= wct
         spt = spt + wct          # update spt, increases spt and wct is set to 0
         wct = 0.0
       end

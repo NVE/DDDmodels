@@ -38,7 +38,7 @@ function WetlandsEB(misoil,eatemp,middelsca,smbog,M,ET)
       
       if (smbog < 0) # prevents breaching the water balance, must adjust ea      
         eabog += smbog #sm is negative
-        smbog = 0
+        smbog = 0.0
       end
       
 #------------------------------------------------------------------------
@@ -50,7 +50,7 @@ function WetlandsEB(misoil,eatemp,middelsca,smbog,M,ET)
         outbog = (Bograt-M)    #Excess water released to runoff
         smbog = M      
       else      
-        outbog = 0
+        outbog = 0.0
         smbog += misoil
       end 
                                             

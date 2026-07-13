@@ -18,7 +18,7 @@ Uhexp = Exponential(escl)
 new = (1 - nugget)*cdf(Uhexp, 1) # 1/escl is parameter of distribution, escl is the mean of timesteps needed to drain.
 UHvec[1] = nugget + new
 if(ant > 1)
-   for i in 2:ant
+   @inbounds for i in 2:ant
       old = new
       new = (1 - nugget)*cdf(Uhexp, i)
       UHvec[i] = new - old #Makes exponential pdf.  

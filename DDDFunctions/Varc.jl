@@ -69,14 +69,14 @@ if(u > 0.0)
     meantot = meanubet/(1-redsca)            # Is the CONDITIONAL VALUE
     betu = round((1-redsca)*nnn-(nnn-u))     # according to the Skaugen and Randen, 2013
     if(betu < 0)                   # taking into account that new conditional mean is higher than previous conditional mean, can't have that
-        betu = 0 
+        betu = 0.0 
     end
     autovar = (sdnux/sdalphax^2)*(betu+betu*(betu-1)*corrvec(betu,drange))
     corrun = faktor*(betu/nnn)
     kryssvar = (sdnux/sdalphax^2)*(2*nnn*betu*corrun)
       if (betu == 0)      
-        autovar = 0
-        kryssvar = 0
+        autovar = 0.0
+        kryssvar = 0.0
       end
     vartot = vardyn+autovar-kryssvar #NB Kryssvar should be reduced. Vartot is the CONDITIONAL VALUE
 end #for u > 0.0 END ABLATION
