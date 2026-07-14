@@ -338,7 +338,7 @@ soilca = 1 .- gca                          # fraction of non-glaciated area per 
 if area[5] > 0                          # if glaciated area > 0.
     gwgt = gca .* elevarea/area[5]  # sums to 1, corrected for areafraction later 
 else
-    gwgt .= 0
+    gwgt .= 0.0
 end
 
 # Finds the fraction of soils (and bogs) in each elevation zone in relation to total soil (and bog) area
@@ -579,48 +579,48 @@ for i in startsim:days
                                                          MW[idim,Lst], snomag[Lst], snomag[Lst], snowdepthx)
      
     end #for elevation zones
- 
-    MSWrad[Lst] = mean(SWrad[:,Lst])
-    MLA[Lst] = mean(LA[:,Lst])
-    MLT[Lst] = mean(LT[:,Lst])
-    GIsoil[Lst] = mean(gisoil[:,Lst])
+    @views begin
+        MSWrad[Lst] = mean(SWrad[:,Lst])
+        MLA[Lst] = mean(LA[:,Lst])
+        MLT[Lst] = mean(LT[:,Lst])
+        GIsoil[Lst] = mean(gisoil[:,Lst])
+        #Snowreservoir
+        snomag[Lst] = mean(sca[:,Lst] .* spd[:,Lst]) # mean catchment SWE ,must multiply with SCA to have arealvalues
+        swe_h[:,Lst] = sca[:,Lst] .* spd[:,Lst] # SWE pr. elevation zone
+        middelsca[Lst] = mean(sca[:,Lst])
+        snofritt[Lst] = 1 - middelsca[Lst]
+        wcs[Lst] = mean(wcd[:,Lst])
+        #Estimate isoil from all elevation zones
+        misoil[Lst] = sum(isoil[:,Lst] .* swgt[:,Lst]) #snowmelt and rain on soils. 
+        # isoil is weighted by the fraction of soils
+        # in relation to soil an bog area pr elevation band
+    end
 
-    #Snowreservoir
-    snomag[Lst] = mean(sca[:,Lst] .* spd[:,Lst]) # mean catchment SWE ,must multiply with SCA to have arealvalues
-    swe_h[:,Lst] = sca[:,Lst] .* spd[:,Lst] # SWE pr. elevation zone
-    middelsca[Lst] = mean(sca[:,Lst])
-    snofritt[Lst] = 1 - middelsca[Lst]
-    wcs[Lst] = mean(wcd[:,Lst])
-
-    #Estimate isoil from all elevation zones
-    misoil[Lst] = sum(isoil[:,Lst] .* swgt[:,Lst]) #snowmelt and rain on soils. 
-    # isoil is weighted by the fraction of soils
-    # in relation to soil an bog area pr elevation band
   end #For landscape types snow and rain
     
     # The following two statements soly for Lst ==1 (P areas)   
-    m_r_onglac = sum(isoil[:,1] .* gwgt) # snowmelt and rain from glaciated area. 
+    m_r_onglac = sum(@views isoil[:,1] .* gwgt) # snowmelt and rain from glaciated area. 
     # isoil is weighted by the fraction of glaciers 
     # pr elevation band in relation to total glaciated area  
     # glacier melt (gisoil) in mm this timestep. 
     # m_r_onglac + outglac is total output from glacier
-    outglac = sum(gisoil[:,1] .* gwgt .* snowfree[:,1])  # gwgt because it is going to be scaled by glacfrac later on
+    outglac = sum(@views @. gisoil[:,1] * gwgt * snowfree[:,1])  # gwgt because it is going to be scaled by glacfrac later on
 
     if area[1] > 0 # area[1] includes area[5]
-      ddistx[:,1] = LayerCapacityUpdate(LayersP, nodaysvector[:,1], Magkap[:,1], NoL)
+      @views ddistx[:,1] = LayerCapacityUpdate(LayersP, nodaysvector[:,1], Magkap[:,1], NoL)
      end
      if area[2] > 0
-      ddistx[:,2] = LayerCapacityUpdate(LayersIP, nodaysvector[:,2], Magkap[:,2], NoL)
+      @views ddistx[:,2] = LayerCapacityUpdate(LayersIP, nodaysvector[:,2], Magkap[:,2], NoL)
      end 
    
      gmltosoil[1] = misoil[1]*(1-(Ltyfrac[5]))+Ltyfrac[5]*(outglac+m_r_onglac) # input from rain, snow and glaciers always > 0 Needs some work!! [5] is glaciers
-     gmltosoil[2] = sum(isoil[:,2] .* swgt[:,2]) # same as misoil[2]
+     gmltosoil[2] = sum(@views isoil[:,2] .* swgt[:,2]) # same as misoil[2]
 
     #Updating the deficit (for all sub surface layers, NOT overland flow layer) before Evapotranspiration
     for Lst in 1:Lty
-      totdef[Lst] = sum(ddistx[2:NoL,Lst]) # This may be negative if input outstrips deficits
+      totdef[Lst] = sum(@views(ddistx[2:NoL,Lst])) # This may be negative if input outstrips deficits
       PotEvap[Lst] = PotentialEvapPT(meantemp, MSWrad[Lst], MLA[Lst], MLT[Lst], MPa)
-      Def[Lst] = max(totdef[Lst],0)
+      Def[Lst] = max(totdef[Lst], 0.0)
     end
 	
 	# Assigning overland flow if infiltration capapcity is exceeded and reduces tosoil in the process
@@ -644,26 +644,26 @@ for i in startsim:days
     
     #calculating additional (ea_S) evapotranspiration directly from Layers
     if area[1] > 0
-      ea_S[1] = LayerEvap!(LayersP, nodaysvector[:,1], ea_S[1], layerUH_P, NoL)
+      @views ea_S[1] = LayerEvap!(LayersP, nodaysvector[:,1], ea_S[1], layerUH_P, NoL)
       ea[1] = ea_sm[1] + ea_S[1]
      end
      if area[2] > 0
-      ea_S[2] = LayerEvap!(LayersIP, nodaysvector[:,2], ea_S[2], layerUH_IP, NoL)
+      @views ea_S[2] = LayerEvap!(LayersIP, nodaysvector[:,2], ea_S[2], layerUH_IP, NoL)
       ea[2] = ea_sm[2] + ea_S[2] # adding evapotranspiration from sm (first) and Layers (second)
      end 
        
     #Estimating current capacity in Layers after Evapotranspiration
     if area[1] > 0
-      ddistx[:,1] = LayerCapacityUpdate(LayersP, nodaysvector[:,1], Magkap[:,1], NoL)
+      @views ddistx[:,1] = LayerCapacityUpdate(LayersP, nodaysvector[:,1], Magkap[:,1], NoL)
     end
     if area[2] > 0
-      ddistx[:,2] = LayerCapacityUpdate(LayersIP, nodaysvector[:,2], Magkap[:,2], NoL)
+      @views ddistx[:,2] = LayerCapacityUpdate(LayersIP, nodaysvector[:,2], Magkap[:,2], NoL)
     end 
 
     #Updating the deficit (for all sub surface layers, NOT overland flow layer)
     for Lst in 1:Lty       
-      totdef[Lst] = sum(ddistx[2:NoL,Lst]) # This may be negative if input outstrips deficits
-      Def[Lst] = max(totdef[Lst], 0)
+      totdef[Lst] = sum(@view(ddistx[2:NoL,Lst])) # This may be negative if input outstrips deficits
+      Def[Lst] = max(totdef[Lst], 0.0)
     end 
      
   #Estimate isoil from all elevation zones and Lty
@@ -709,10 +709,10 @@ for i in startsim:days
   
   #Calculating UH for overland flow Layer #1
   if ddist[1,1] * outx[1] > 0 # overland flow for LST =1 (P) is confirmed for this event
-    OverlandFlowDynamicDD!(k[:,1], ddist[:,1], outx[1], layerUH_P, nodaysvector[:,1], NoL, Ltymid[1], CritFlux[1], Timeresinsec)
+    @views OverlandFlowDynamicDD!(k[:,1], ddist[:,1], outx[1], layerUH_P, nodaysvector[:,1], NoL, Ltymid[1], CritFlux[1], Timeresinsec)
   end
   if (Lty > 1) && (ddist[1,2] * outx[2] > 0)
-    OverlandFlowDynamicDD!(k[:,2], ddist[:,2], outx[2], layerUH_IP, nodaysvector[:,2], NoL, Ltymid[2], CritFlux[2], Timeresinsec)
+    @views OverlandFlowDynamicDD!(k[:,2], ddist[:,2], outx[2], layerUH_IP, nodaysvector[:,2], NoL, Ltymid[2], CritFlux[2], Timeresinsec)
   end
 
   ##Waterbalance calculations
@@ -748,17 +748,17 @@ for i in startsim:days
   end         
             
   #Updating the saturation Layers
-  LayerUpdate!(ddist[:,1], outx[1], LayersP, layerUH_P, nodaysvector[:,1], NoL)
+  @views LayerUpdate!(ddist[:,1], outx[1], LayersP, layerUH_P, nodaysvector[:,1], NoL)
   if Lty > 1
-    LayerUpdate!(ddist[:,2], outx[2], LayersIP, layerUH_IP, nodaysvector[:,2], NoL)
+    @views LayerUpdate!(ddist[:,2], outx[2], LayersIP, layerUH_IP, nodaysvector[:,2], NoL)
   end
   BogLayerUpdate!(outbog, BogLayers, UHbog, antBogsteps)
    
   #summing up groundwater states
-  lyrs[1] = sum(LayersP)                           # Todays precip is included, but ex todays runoff
-  subsurface[1] = sum(LayersP[:,2:NoL]) # gives the sum of layers after todays runoff has taken place
-  lyrs[2] = sum(LayersIP)
-  subsurface[2] = sum(LayersIP[:,2:NoL])
+  subsurface[1] = sum(@view(LayersP[:,2:NoL])) # gives the sum of layers after todays runoff has taken place
+  lyrs[1] = sum(@view(LayersP[:,1])) + subsurface[1]                           # Todays precip is included, but ex todays runoff
+  subsurface[2] = sum(@view(LayersIP[:,2:NoL]))
+  lyrs[2] = sum(@view(LayersIP[:,1])) + subsurface[2]
   
   #summing up bogstates
   boglyrs = sum(BogLayers)

@@ -13,7 +13,7 @@ function GrvInputDistributionICap!(outx, NoL,ddistx, ddist, ICap)
     
 if outx > 0
 
- @views defi = sum(ddistx[2:NoL])             # deficit in subsurface
+ defi = sum(@view(ddistx[2:NoL]))             # deficit in subsurface
 
  if defi < outx                   # the deficit is less than water input (outx)
    OF = outx-defi                  # In addition, saturation from below also gives OF
@@ -39,7 +39,7 @@ if outx > 0
          redoutx -= ddistx[j] # must reduce  the input correspondingly       
        else               # i.e. deficit in layer j is more than input
            if j < NoL
-             ddist[j] = 1.0 - sum(ddist[(j+1):NoL])-ddist[1]  #ddist[1] is already assigned
+             ddist[j] = 1.0 - sum(@view(ddist[(j+1):NoL]))-ddist[1]  #ddist[1] is already assigned
            else
              ddist[j] = 1.0 - ddist[1]                              #ddist[1] is already assigned
            end

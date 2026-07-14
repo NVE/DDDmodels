@@ -13,14 +13,14 @@ LayerUpdate!(ddist, outx, Layers, layerUH, nodaysvector, NoL)
 Update the subsurface water storage `Layers`.
 
 # Arguments
-- `ddist::Vector{Float64}`: weights distributing soil moisture to the layers [-]
-- `outx::Float64`: moisture to be distributed [mm]
-- `Layers::Matrix{Float64}`: subsurface water storage (columns: time steps; rows: layers) [mm]
-- `layerUH::Matrix{Float64}`: weights distributing moisture in time (columns: time steps; rows: layers) [-]
-- `nodaysvector::Vector{Int}`: number of time steps for each layer [-]
-- `NoL::Int`: number of layers [-]
+- `ddist`: weights distributing soil moisture to the layers [-]
+- `outx`: moisture to be distributed [mm]
+- `Layers`: subsurface water storage (columns: time steps; rows: layers) [mm]
+- `layerUH`: weights distributing moisture in time (columns: time steps; rows: layers) [-]
+- `nodaysvector`: number of time steps for each layer [-]
+- `NoL`: number of layers [-]
 """
-function LayerUpdate!(ddist::Vector{Float64}, outx::Float64, Layers::Matrix{Float64}, layerUH::Matrix{Float64}, nodaysvector::Vector{Int}, NoL::Int)
+function LayerUpdate!(ddist, outx, Layers, layerUH, nodaysvector, NoL)
   @inbounds for j in 1:NoL
     multiplier = ddist[j] * outx
     Layers[1,j] = multiplier * layerUH[1,j]

@@ -10,7 +10,6 @@
 function RiverUpdate!(vectorlengde, QRivx, qsimutx)
 # qsimutx: 1 dim array float
 # QRivx: 1 dim array float
-# QRD : float    
 # vectorlengde: scalar integer
 
     #vectorlengde = 10 
@@ -18,13 +17,11 @@ function RiverUpdate!(vectorlengde, QRivx, qsimutx)
     #qsimutx = [3.2, 3.1, 3.0, 2.8, 2.7, 2.6, 2.5, 2.4, 2.3,2.2]
     
   if vectorlengde > 1
-    @views QRivx[1:(vectorlengde-1)] .= QRivx[2:vectorlengde]
-    QRivx[vectorlengde] = 0.0
-    QRivx .+= qsimutx
-  else
-     QRivx .= qsimutx
+      @inbounds @simd for t in 2:vectorlengde
+          QRivx[t-1] = QRivx[t] + qsimutx[t-1]
+      end
   end  
-  QRD = QRivx[1] # QRD is Runoff for current timestep
+  QRivx[vectorlengde] = qsimutx[vectorlengde]
+  return QRivx[1] # Runoff for current timestep
 
-return QRD
 end            

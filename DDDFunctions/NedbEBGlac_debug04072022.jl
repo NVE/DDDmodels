@@ -30,20 +30,19 @@ function NedbEB(CFR,DN,P,Ta,SWE,Timeresinsec,TX,prkorr,pskorr,thr,u,Pa,CGLAC,CX,
     rhow = 1000 #[kgm^-3]
     lam = 334 #kJkg^-1 latent heat of fusion    se Dingman p.190
 
-    MWGLAC1 = 0.0
-    MWGLAC = 0.0
     #CC == 0.0
-     MWGLAC1 = 1000.0*(SWrad*((1-AGlac)/(1-A))+LA-LT+SH+LE+GH+PH)/(lam*rhow) #potential melt in mm Glacial melt. 
-	                                                                         #Note that SWrad already has been corrected for Albedo. We thus have to correct it back by 1/(1-A)                                                                             # we multiply with 1000 to go from [m] to [mm] 
-    #end
     #TS = 0.0                # Temperature threshold for melt (glaciers)
-    MWGLAC = CGLAC*(Ta-TS)  #Glacial melt
-	MWCX = CX*(Ta-TS)		# potential snowmelt using degreeday factor
+    Δ = Ta - TS
+	MWCX = CX * Δ		# potential snowmelt using degreeday factor
     
-    if(Ta < TS)              #melt (MW) returns as negative    
-      MW = MW*CFR            #refreezes the melt, returns as negative and as mm refreezed water
+    if Δ < 0              #melt (MW) returns as negative    
+      MW *= CFR            #refreezes the melt, returns as negative and as mm refreezed water
       MWGLAC = 0.0  
       MWGLAC1 = 0.0    
+    else
+      MWGLAC = CGLAC * Δ  #Glacial melt
+      MWGLAC1 = 1000.0*(SWrad*((1-AGlac)/(1-A))+LA-LT+SH+LE+GH+PH)/(lam*rhow) #potential melt in mm Glacial melt. 
+	  #Note that SWrad already has been corrected for Albedo. We thus have to correct it back by 1/(1-A). We multiply with 1000 to go from [m] to [mm] 
     end      
 
 return PS,PR,MW,MWGLAC,SWrad, LA,LT,SH,LE,GH,PH,CC,A,taux,snittT, Tss,Cl, RH, MWGLAC1, MWCX

@@ -28,7 +28,7 @@ function LayerEvap!(Layers, nodaysvector, ea_S, layerUH, NoL)
     if redea > 0
 
       if sum(Layers) > 0
-        aktMag = sum(Layers[1:nodaysvector[j],j]) # this is correct because ea is a nonintegrated with a continuum variable as opposed to discharge
+        aktMag = sum(@view(Layers[1:nodaysvector[j],j])) # this is correct because ea is a nonintegrated with a continuum variable as opposed to discharge
         differ = aktMag - redea 
         # println(aktMag)
         # println(differ)
@@ -39,18 +39,18 @@ function LayerEvap!(Layers, nodaysvector, ea_S, layerUH, NoL)
   
         if differ > 0 # the Layer has more water than is to be evaporated > ea_S                
             ea_excess = 0.0
-            @views evapUH = redea .* layerUH[1:nodaysvector[j],j]
+            evapUH = redea .* @view(layerUH[1:nodaysvector[j],j])
 
             @views tull = findall(Layers[1:nodaysvector[j],j] .< evapUH[1:nodaysvector[j]])
             if length(tull) > 0
               x = tull    # locate which boxes have not enough water to evaporate
-              ea_excess = sum(evapUH[x]) # the amount which is not evaporated
+              ea_excess = sum(@view(evapUH[x])) # the amount which is not evaporated
               evapUH[x] .= 0.0            # the identified boxes have zero instead of negative values
             end   
-            Layers[1:nodaysvector[j],j] .-= evapUH[1:nodaysvector[j]]
+            Layers[1:nodaysvector[j],j] .-= @view(evapUH[1:nodaysvector[j]])
 
-            if round(aktMag - sum(Layers[1:nodaysvector[j],j]) - redea + ea_excess; digits=8) != 0
-              avvik = round(aktMag - sum(Layers[1:nodaysvector[j],j]) - redea + ea_excess; digits= 8)
+            avvik = round(aktMag - sum(@view(Layers[1:nodaysvector[j],j])) - redea + ea_excess; digits= 8)
+            if avvik != 0
               println("Hei, feil i fordampning", avvik)
             end  
             redea = 0.0
@@ -66,8 +66,6 @@ function LayerEvap!(Layers, nodaysvector, ea_S, layerUH, NoL)
         #println(total_layers_last)       
         #println(sum(Layers))
         #println(total_layers_last)    
-      else                           # sumLayers == 0    
-        ea = 0.0
       end                             # sumLayers ==0      
     end                   # redea > 0.0 
   end                          # for loop

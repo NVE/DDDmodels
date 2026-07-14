@@ -20,7 +20,7 @@ function UnsaturatedExEvap(toSoil,sm,R,D)
       if(D > 0)
         rat = (sm + toSoil)/D
       else
-         rat = 1 #taking into account that D can be zero or even negative (overland flow), complete saturation.
+         rat = 1.0 #taking into account that D can be zero or even negative (overland flow), complete saturation.
       end
       
       if (rat > R)      

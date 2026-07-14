@@ -17,7 +17,7 @@ function RiverPoint(vectorlengde,innQRivx, rnw_distvec, maxFl)
 # rnw_distvec the distance away from the outlet we want estimated
 
 ant_rnw = length(rnw_distvec)       # number of points int he Rn we want estimated
-rnw = Vector{Float64}(undef, ant_rnw) # vector for storing groundwater values for the current Layer 
+rnw = zeros(ant_rnw) # vector for storing groundwater values for the current Layer 
 rnwdelta_d = maxFl/vectorlengde
 
 for i in 1:(ant_rnw-1) #to be certain we do not go beyond the matrix 

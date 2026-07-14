@@ -13,7 +13,7 @@ end
 if(swex > 0 && swe > 0)
     density = swex/snowdepth 
     if(xmw > 0) 
-       snowdepth = snowdepth - xmw/density
+       snowdepth -= xmw/density
     end
     if(snowdepth < 0)
        snowdepth = 0.0
@@ -35,7 +35,7 @@ if(swe > 0)
        delta_depth = snowdepth-swe/MaxDensity
      end
     end                                                                 
-    snowdepth = snowdepth + (newsnow/density_new) - delta_depth # updatet snowdepth due to newsnow
+    snowdepth += (newsnow/density_new) - delta_depth # updatet snowdepth due to newsnow
 end
  
 DensityAge!(snowdepth,swe,T)  #snowdepth due to ageing 

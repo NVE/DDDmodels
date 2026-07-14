@@ -3,7 +3,7 @@ function DensityAge!(snowdepth,swe,T)
 #compaction due to ageing
 
 MaxDensity = 0.7
-MaxChange = 0.9
+#MaxChange = 0.9
 kcomp = 0.5
 G = 9.81
 ETA0 = 3.6e6
@@ -21,7 +21,7 @@ if(snowdepth > 0)
     if snowdepth < delta_depth
       snowdepth = 0.0
     else
-      snowdepth = snowdepth - delta_depth
+      snowdepth -= delta_depth
     end
 end
     

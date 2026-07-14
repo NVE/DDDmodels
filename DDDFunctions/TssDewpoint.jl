@@ -8,9 +8,7 @@ function TssDewpoint(Ta, RH)
 	if Ta  > 0.0 
        b=17.625
        c=243.04 # Celscius
-    end
-
-    if Ta  <= 0.0
+    else
       b=22.587
       c=273.86
     end

@@ -45,12 +45,10 @@ end
 if(n > 0)
 #if nnn = 0 then the totalvariance is equal to autocovariance calculated for n (fresh start)
 #vardyn and kryssvar equals 0 and the mean value equals n*unitmean (unitmean = sdnux/sdalphax).
-   if (nnn==0)
+   if nnn == 0
      vartot =  n*(sdnux/sdalphax^2)*(1 + (n-1)*corrvec(n,drange))
      meantot = n*(sdnux/sdalphax)
-   end
-    
-   if(nnn > 0)# must scale the corrvec
+   elseif nnn > 0 # must scale the corrvec
      varoldcov = vardyn + n*(sdnux/sdalphax^2)*(1 + (n-1)*corrvec(n,drange)) # 08.01.2016  antar uavhengighet mellom gammelt og nytt, hensikten er å øke variansen
      # calculating the n matrix
      varnewcov = n*(sdnux/sdalphax^2)*(1+(n-1)*corrvec(n,drange)) #denne er OK
@@ -68,16 +66,15 @@ if(u > 0.0)
     meanubet = (nnn-u)*(sdnux/sdalphax)
     meantot = meanubet/(1-redsca)            # Is the CONDITIONAL VALUE
     betu = round((1-redsca)*nnn-(nnn-u))     # according to the Skaugen and Randen, 2013
-    if(betu < 0)                   # taking into account that new conditional mean is higher than previous conditional mean, can't have that
+    if(betu <= 0)                   # taking into account that new conditional mean is higher than previous conditional mean, can't have that
         betu = 0.0 
-    end
-    autovar = (sdnux/sdalphax^2)*(betu+betu*(betu-1)*corrvec(betu,drange))
-    corrun = faktor*(betu/nnn)
-    kryssvar = (sdnux/sdalphax^2)*(2*nnn*betu*corrun)
-      if (betu == 0)      
         autovar = 0.0
         kryssvar = 0.0
-      end
+    else
+        autovar = (sdnux/sdalphax^2)*(betu+betu*(betu-1)*corrvec(betu,drange))
+        corrun = faktor*(betu/nnn)
+        kryssvar = (sdnux/sdalphax^2)*(2*nnn*betu*corrun)
+    end
     vartot = vardyn+autovar-kryssvar #NB Kryssvar should be reduced. Vartot is the CONDITIONAL VALUE
 end #for u > 0.0 END ABLATION
         
