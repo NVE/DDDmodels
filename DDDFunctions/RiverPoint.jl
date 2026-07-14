@@ -21,8 +21,8 @@ rnw = zeros(ant_rnw) # vector for storing groundwater values for the current Lay
 rnwdelta_d = maxFl/vectorlengde
 
 for i in 1:(ant_rnw-1) #to be certain we do not go beyond the matrix 
-   tall = rnw_distvec[i]
-   rnw[i] = round(innQRivx[(Int(trunc(tall/rnwdelta_d))+1)], digits=3) # Integer division.  
+   j = trunc(Int, rnw_distvec[i]/rnwdelta_d) + 1
+   rnw[i] = round(innQRivx[j], digits=3)
    #println("rnw: ",rnw[i])
 end
              

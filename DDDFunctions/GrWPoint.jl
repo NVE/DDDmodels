@@ -21,7 +21,7 @@ grw = zeros(ant)            # vector for storing groundwater values for the curr
 @inbounds for i in 1:(ant-1)  # to be certain we do not go beyond the matrix
   tall = distvec[i]
   @simd for j in 1:NoL
-   h = Int(trunc(tall/delta_d[j])) + 1
+   h = trunc(Int, tall/delta_d[j]) + 1
    layersmm = innLayers[h,j] * (totarea/Areas[h,j])
    grw[i] += round(layersmm, digits=3) # Sums up Layer_mm for each layer
   end

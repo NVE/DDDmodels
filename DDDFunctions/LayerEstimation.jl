@@ -25,7 +25,7 @@ function LayerEstimation(GshInt,GscInt,Timeresinsec,maxDl,midDL, MAD, area2, NoL
 mLam = GshInt*GscInt
 varLam = GshInt*(GscInt)^2                           #Yevjevich p.145
 meanIntk = mLam*midDL/Timeresinsec                   #mean celerity estimated through Integrated Celerity
-antBox = Int(trunc(maxDl/(meanIntk*Timeresinsec)))+1 #Temporal length UH_MAD
+antBox = trunc(Int, maxDl/(meanIntk*Timeresinsec)) + 1 #Temporal length UH_MAD
 sRes = Vector{Float64}(undef, antBox) # saturation sum
 
 #Unit hydrograph for MAD

@@ -10,7 +10,7 @@ function SingleUH(k,Timeresinsec,meanD,maxD, nugget)
 #Timeresinsec: scalar Integer = 86400
 #k: scalar float, NB enters as an array float in other subroutines
     
-ant = Int(trunc(maxD/(k*Timeresinsec))) + 1
+ant = trunc(Int, maxD/(k*Timeresinsec)) + 1
 UHvec = Vector{Float64}(undef, ant)
 
 escl =  (meanD/k)/Timeresinsec 

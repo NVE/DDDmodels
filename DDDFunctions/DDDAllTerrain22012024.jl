@@ -361,24 +361,23 @@ end
 bogspeed = k[1,1] # same as for overland flow Permeable areas
                                     
 #Unit hydrographs for Wetlands
-antBogsteps =Int(trunc(Ltymax[3]/(bogspeed*Timeresinsec))+1) # Number of timsteps to drain wetlands
+antBogsteps = trunc(Int, Ltymax[3]/(bogspeed*Timeresinsec)) + 1 # Number of timsteps to drain wetlands
 UHbog = zeros(antBogsteps)                  # Vector for Bog unit hydrograph
-if(area[3] > 0)
+if area[3] > 0
     UHbog = SingleUH(bogspeed,Timeresinsec, Ltymid[3], Ltymax[3], Ltyz[3])
-end
-if(area[3] <= 0)
+else
     UHbog = 1.0
 end
 
 #Unit hydrographs for P and IP based on celerities and distance distributions,exponentially distributed
 antHorlag = zeros(Int64,Lty)
 for Lst in 1:Lty
-    antHorlag[Lst] = Int(trunc(Ltymax[Lst]/(k[NoL,Lst]*Timeresinsec))+1) # +1 includes the final day.  NB only in soils part
+    antHorlag[Lst] = trunc(Int, Ltymax[Lst]/(k[NoL,Lst]*Timeresinsec)) + 1 # +1 includes the final day.  NB only in soils part
 end
 
 nodaysvector = zeros(Int64, NoL, Lty) # Number of timesteps to drain each layer
 for Lst in 1:Lty 
-    nodaysvector[:,Lst] = Int.(trunc.(Ltymax[Lst] ./ k[:,Lst] ./ Timeresinsec).+1) # integer time steps
+    nodaysvector[:,Lst] = trunc.(Int, Ltymax[Lst] ./ k[:,Lst] ./ Timeresinsec) .+ 1 # integer time steps
 end
 
 if area[1] > 0
@@ -456,9 +455,9 @@ end
 RNwdelta_d = Ltymax[6]/noDT
 
 mindistant = 25 #number distance interval for each montoing of saturation
-satintP = Int(trunc(Ltymax[1]/mindistant)) #Number of distances from RN for which we will investigate the saturation 
-satintIP = Int(trunc(Ltymax[2]/mindistant)) #Number of distances from RN for which we will investigate the saturation 
-rnint = Int(trunc(Ltymax[6]/mindistant)) #Number of distances from outlet for which we will investigate the water in the RN
+satintP = trunc(Int, Ltymax[1]/mindistant) #Number of distances from RN for which we will investigate the saturation 
+satintIP = trunc(Int, Ltymax[2]/mindistant) #Number of distances from RN for which we will investigate the saturation 
+rnint = trunc(Int, Ltymax[6]/mindistant) #Number of distances from outlet for which we will investigate the water in the RN
 mindist = satintIP .* collect(1:mindistant) # Distances at which we will monitor the simulated saturation
 rndist = rnint .* collect(1:mindistant) # Distances at which we will monitor the simulated water in the RN
 

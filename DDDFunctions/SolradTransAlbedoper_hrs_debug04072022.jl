@@ -67,7 +67,7 @@ function SolradTransAlbedo(DN,Ta,taux,SWE,regn,thr,Timeresinsec,TSS,PS,phi,thi,C
     end
   end
 
-  interv = max(Int(trunc(Timeresinsec/3600)), 1) #how many hours? we don not go below 1 hours for these calculations
+  interv = max(trunc(Int, Timeresinsec/3600), 1) #how many hours? we don not go below 1 hours for these calculations
   Sinn = Statistics.mean(@view(SW[(thrx-interv+1):thrx]))
   zenang = Statistics.mean(@view(dingom[(thrx-interv+1):thrx])) 
   #zenang =Statistics.mean(zenangtid[(thrx-interv+1):thrx])   
