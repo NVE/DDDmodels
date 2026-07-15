@@ -65,11 +65,10 @@ catchment will be skipped.
 
 ## 5. Possible improvements
 
-- avoid reversing STempvec and optimise related calculations
+- OverlandFlowDynamicDD!: output responseUH without overwriting layerUH, which then needs to be reset to its initialization value:
+  these need to be treated as 2 separate variables.
+- Use StaticArrays for unmutable arrays whose size is known at compile time.
 - Check that functions are type-stable to avoid performance losses.
-- improve upon `ptqinn` data structure for faster data access in time loop (now time steps are rows)
-- Test alternatives to DataFrames to ensure type stability (e.g. DimensionalData, TypedTables, TimeArrays)
-  or is it enough with function barrier on loading?
 - Specify which parameters should be calibrated and which have a fixed value in settings,
   instead of using collapsed ranges, to reduce the formal number of parameters.
 - Sensitivity analysis (e.g. [GlobalSensitivity.jl](https://docs.sciml.ai/GlobalSensitivity/stable/))

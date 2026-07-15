@@ -275,13 +275,13 @@ CritFlux[1:Lty] .= prm[74:75] # Critical flux estimates. Sensitivity  unknown...
 ################################### End of reading parameters ############################################
 
 #Merging assumed Glacier river network [5] with observed river network [6]. We assume independent normal distributions for 5 an 6
-Ltymax[6] = Ltymax[6] + Ltymax[5]
-Ltymid[6] = Ltymid[6] + Ltymid[5]  #mean of flowlength distribution
-Ltystd[6] = Ltystd[6] + Ltystd[5]
+Ltymax[6] += Ltymax[5]
+Ltymid[6] += Ltymid[5]  #mean of flowlength distribution
+Ltystd[6] += Ltystd[5]
 
 #Infiltration capacity in mm/s. Must multiply with Timeresinsec
 for Lst in 1:Lty 
-    ICap[Lst] = ICap[Lst] .* Timeresinsec
+    ICap[Lst] *= Timeresinsec
 end
 
 #if no impermeable areas. Every item associated with Lty=2 (IP areas) should be zero
@@ -330,6 +330,7 @@ area = Ltyfrac.* totarea                    # areas of differnt Lty, a vector
 
 #elevarea = (totarea/hson)                  # area pr elevationzone
 elevarea = ((area[1]+area[3])/hson)        # P 8including glaciers) and Bogs area pr elevationzone
+# TEST STATIC ARRAYS on gca!
 gca = [g1,g2,g3,g4,g5,g6,g7,g8,g9,g10]     # fraction of glaciated area per elevation zone 
 soilca = 1 .- gca                          # fraction of non-glaciated area per elevation zone
 
@@ -366,7 +367,7 @@ UHbog = zeros(antBogsteps)                  # Vector for Bog unit hydrograph
 if area[3] > 0
     UHbog = SingleUH(bogspeed,Timeresinsec, Ltymid[3], Ltymax[3], Ltyz[3])
 else
-    UHbog = 1.0
+    UHbog = [1.0]
 end
 
 #Unit hydrographs for P and IP based on celerities and distance distributions,exponentially distributed
@@ -584,8 +585,8 @@ for i in startsim:days
         MLT[Lst] = mean(LT[:,Lst])
         GIsoil[Lst] = mean(gisoil[:,Lst])
         #Snowreservoir
-        snomag[Lst] = mean(sca[:,Lst] .* spd[:,Lst]) # mean catchment SWE ,must multiply with SCA to have arealvalues
         swe_h[:,Lst] = sca[:,Lst] .* spd[:,Lst] # SWE pr. elevation zone
+        snomag[Lst] = mean(swe_h[:,Lst]) # mean catchment SWE ,must multiply with SCA to have arealvalues
         middelsca[Lst] = mean(sca[:,Lst])
         snofritt[Lst] = 1 - middelsca[Lst]
         wcs[Lst] = mean(wcd[:,Lst])
