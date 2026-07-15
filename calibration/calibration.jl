@@ -178,7 +178,7 @@ function calibrateMultipleCatchments(path_toml::String)
         ## Paths to PTQ input for each period
         paths_ptq = pathsPTQ(id, settings)
         ## Load initial parameters and run DDD
-        path_inipar = replace(settings.template_path_inipar, "<CATCHMENT>" => id)
+        path_inipar = pathIniPar(id, settings)
         parameters = ParameterSet(path_inipar)
         dir_out_ini = mkpath(joinpath(dir_out, "initial"))
         runDDD(paths_ptq, getHydrologicParameters(parameters), parameters.values, settings.spinup, dir_out_ini, "initial parameters")
@@ -216,7 +216,7 @@ function inputSingleCatchmentRun(path_toml::String, id::String, period::String)
     path_ptq = pathsPTQ(id, settings)[period]
     timesteps, precipitation, temperature, discharge = loadPTQ(path_ptq)
     # Load initial parameters
-    path_inipar = replace(settings.template_path_inipar, "<CATCHMENT>" => id)
+    path_inipar = pathIniPar(id, settings)
     parameters = ParameterSet(path_inipar)
     # Root folder for catchment output
     dir_out = mkpath(joinpath(settings.root_output, "single_runs", id))
