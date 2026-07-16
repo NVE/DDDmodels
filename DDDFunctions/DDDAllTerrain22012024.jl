@@ -106,6 +106,36 @@ function loadPTQ(path::String)
 end
 
 
+function loadstates()
+    tilstfile = string("\\\\nve.no\\fil\\h\\HM\\Interne Prosjekter\\HydSimOveralt\\Totalmodell\\utdata\\",
+                       "statefile_",catchment,"_20200116_1220_.hdf5")
+    data = load(tilstfile)
+    return (sca            = data["sca"]            ::Vector{Float64},
+            spd            = data["spd"]            ::Vector{Float64},
+            wcd            = data["wcd"]            ::Vector{Float64},
+            nsno           = data["nsno"]           ::Vector{Float64},
+            alfa           = data["alfa"]           ::Vector{Float64},
+            ny             = data["ny"]             ::Vector{Float64},
+            sm             = data["sm"]             ::Vector{Float64},
+            smbog          = data["smbog"]          ::Float64,
+            LayersP        = data["LayersP"]        ::Matrix{Float64},
+            LayersIP       = data["LayersIP"]       ::Matrix{Float64},
+            BogLayers      = data["BogLayers"]      ::Vector{Float64},
+            QRivx          = data["QRivx"]          ::Vector{Float64},
+            QRivxP         = data["QRivxP"]         ::Vector{Float64},
+            QRivxIP        = data["QRivxIP"]        ::Vector{Float64},
+            QRivxBog       = data["QRivxBog"]       ::Vector{Float64},
+            QRivxOF        = data["QRivxOF"]        ::Vector{Float64},
+            LakeLayers     = data["LakeLayers"]     ::Vector{Float64},
+            P_LakeLayers   = data["P_LakeLayers"]   ::Vector{Float64},
+            IP_LakeLayers  = data["IP_LakeLayers"]  ::Vector{Float64},
+            Bog_LakeLayers = data["Bog_LakeLayers"] ::Vector{Float64},
+            OF_LakeLayers  = data["OF_LakeLayers"]  ::Vector{Float64},
+            tempstart      = data["tempstart"]      ::Matrix{Float64},
+            taux           = data["taux"]           ::Vector{Float64})
+end
+
+
 function ddd(timesteps::Vector{DateTime}, precipitation::Matrix{Float64}, temperature::Matrix{Float64}, discharge::Vector{Float64},
              startsim::Int, tprm::Vector{Float64}, prm::Vector{Float64}, utfile::String, r2fil::String, modstate::Int,
              savestate::Int, kal::Int, spinuptime::Int, silent::Bool)
@@ -333,8 +363,8 @@ area = Ltyfrac.* totarea                    # areas of differnt Lty, a vector
 #elevarea = (totarea/hson)                  # area pr elevationzone
 elevarea = ((area[1]+area[3])/hson)        # P 8including glaciers) and Bogs area pr elevationzone
 # TEST STATIC ARRAYS on gca!
-gca = [g1,g2,g3,g4,g5,g6,g7,g8,g9,g10]     # fraction of glaciated area per elevation zone 
-soilca = 1 .- gca                          # fraction of non-glaciated area per elevation zone
+gca = Float64[g1,g2,g3,g4,g5,g6,g7,g8,g9,g10]     # fraction of glaciated area per elevation zone 
+soilca = 1.0 .- gca                          # fraction of non-glaciated area per elevation zone
 
 # gwgt is the fraction of glaciated area pr elevation zone in relation to total glaciated area 
 # i.e. fraction of total glaciared area located in each elevation zone
@@ -478,15 +508,10 @@ grwpointresult = zeros(mindistant, days) # allocate groundwater point results ma
 rnpointresult = zeros(mindistant, days) # allocate rn point results matrix
 
 #States
- if(modstate == 1) 
-    tilstfile = string("\\\\nve.no\\fil\\h\\HM\\Interne Prosjekter\\HydSimOveralt\\Totalmodell\\utdata\\",
-    "statefile_",catchment,"_20200116_1220_.hdf5")
-    #Run with states. The states from the previous times step is loaded
- @load tilstfile sca spd wcd nsno alfa ny sm smbog LayersP LayersIP BogLayers QRivx QRivxP QRivxIP QRivxBog QRivxOF LakeLayers P_LakeLayers IP_LakeLayers Bog_LakeLayers OF_LakeLayers tempstart taux #Run with states. The states from the previous times step is loaded 
- 
-end   
-
-if (modstate == 0)                   # Run with initial values  
+if modstate == 1 # Run with saved states. The states from the previous times step is loaded
+  (; sca, spd, wcd, nsno, alfa, ny, sm, smbog, LayersP, LayersIP, BogLayers, QRivx, QRivxP, QRivxIP, QRivxBog,
+     QRivxOF, LakeLayers, P_LakeLayers, IP_LakeLayers, Bog_LakeLayers, OF_LakeLayers, tempstart, taux) = loadstates()
+else              # Run with initial values
     smbog  = 0.0                          # Soilmoisture Bogs   
     QRivx[1:noDT] .= qsimutxP[1:noDT]             #discharge in m3/s, contribution from P
     QRivx[1:noDT] .= QRivx[1:noDT] .+ qsimutxIP[1:noDT] #adding contribution from IP
