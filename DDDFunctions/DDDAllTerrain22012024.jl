@@ -397,6 +397,13 @@ for i in 1:NoL
     end
 end
 
+if area[1] > 0
+ overlandUH_P = copy(layerUH_P)
+end
+if area[2] > 0
+ overlandUH_IP = copy(layerUH_IP)
+end
+
 #UH for RIVER/Conduits, normally distributed #6
 #number of time units in river routing, rounded up. If set equal to one day, time is actually less
 UHriver, noDT, nodaysRiv = SingleNormalUH(rv,Timeresinsec,Ltymid[6],Ltystd[6],Ltymax[6]) #This subroutine extracts a UH normally distributed. 
@@ -712,10 +719,10 @@ for i in startsim:days
   
   #Calculating UH for overland flow Layer #1
   if ddist[1,1] * outx[1] > 0 # overland flow for LST =1 (P) is confirmed for this event
-    @views OverlandFlowDynamicDD!(k[:,1], ddist[:,1], outx[1], layerUH_P, nodaysvector[:,1], NoL, Ltymid[1], CritFlux[1], Timeresinsec)
+    @views OverlandFlowDynamicDD!(k[:,1], ddist[:,1], outx[1], overlandUH_P, nodaysvector[:,1], NoL, Ltymid[1], CritFlux[1], Timeresinsec)
   end
   if (Lty > 1) && (ddist[1,2] * outx[2] > 0)
-    @views OverlandFlowDynamicDD!(k[:,2], ddist[:,2], outx[2], layerUH_IP, nodaysvector[:,2], NoL, Ltymid[2], CritFlux[2], Timeresinsec)
+    @views OverlandFlowDynamicDD!(k[:,2], ddist[:,2], outx[2], overlandUH_IP, nodaysvector[:,2], NoL, Ltymid[2], CritFlux[2], Timeresinsec)
   end
 
   ##Waterbalance calculations
@@ -732,28 +739,28 @@ for i in startsim:days
   #GDT_P = sum(LayersP[1:NoL,1]) + sum(ddist[1,1:NoL] .* outx[1] .* layerUH_P[1:NoL,1])      #groundwater to be discharged into the rivernetwork + this timesteps contribution
   #GDT_IP = sum(LayersIP[1:NoL,1]) + sum(ddist[2,1:NoL] .* outx[2] .* layerUH_IP[1:NoL,1])   #groundwater to be discharged into the rivernetwork 
   if area[1] > 0
-    @views GDT_P = sum(LayersP[1,:]) + outx[1] * sum(ddist[:,1] .* layerUH_P[1,:]) # groundwater to be discharged into the rivernetwork + this timesteps contribution
+    @views GDT_P = sum(LayersP[1,:]) + outx[1] * sum(ddist[:,1] .* overlandUH_P[1,:]) # groundwater to be discharged into the rivernetwork + this timesteps contribution
   end
   if area[2] > 0
-    @views GDT_IP = sum(LayersIP[1,:]) + outx[2] * sum(ddist[:,2] .* layerUH_IP[1,:])   #groundwater to be discharged into the rivernetwork 
+    @views GDT_IP = sum(LayersIP[1,:]) + outx[2] * sum(ddist[:,2] .* overlandUH_IP[1,:])   #groundwater to be discharged into the rivernetwork
   end 
   if area[3] > 0
    GDT_Bog =  BogLayers[1]+outbog*UHbog[1]         #bogwater to be discharged into the rivernetwork + this timesteps contribution
   end
   
   #Overland flow
-  GDT_OF = Ltyfrac[1]*(LayersP[1,1]+(ddist[1,1]*outx[1]*layerUH_P[1,1]))
+  GDT_OF = Ltyfrac[1]*(LayersP[1,1]+(ddist[1,1]*outx[1]*overlandUH_P[1,1]))
   if area[2] > 0
-    GDT_OF  += Ltyfrac[2]*(LayersIP[1,1]+(ddist[1,2]*outx[2]*layerUH_IP[1,1]))
+    GDT_OF  += Ltyfrac[2]*(LayersIP[1,1]+(ddist[1,2]*outx[2]*overlandUH_IP[1,1]))
   end  
   if area[3] > 0
     GDT_OF  += Ltyfrac[3]*(BogLayers[1]+outbog*UHbog[1])# Overland flow part
   end         
             
   #Updating the saturation Layers
-  @views LayerUpdate!(ddist[:,1], outx[1], LayersP, layerUH_P, nodaysvector[:,1], NoL)
+  @views LayerUpdate!(ddist[:,1], outx[1], LayersP, overlandUH_P, nodaysvector[:,1], NoL)
   if Lty > 1
-    @views LayerUpdate!(ddist[:,2], outx[2], LayersIP, layerUH_IP, nodaysvector[:,2], NoL)
+    @views LayerUpdate!(ddist[:,2], outx[2], LayersIP, overlandUH_IP, nodaysvector[:,2], NoL)
   end
   BogLayerUpdate!(outbog, BogLayers, UHbog, antBogsteps)
    
@@ -765,12 +772,6 @@ for i in startsim:days
   
   #summing up bogstates
   boglyrs = sum(BogLayers)
-        
-  #reinstate original overland flow layer
-  layerUH_P[1:nodaysvector[1,1],1] .= SingleUH(k[1,1], Timeresinsec, Ltymid[1], Ltymax[1], Ltyz[1])
-  if Lty > 1
-    layerUH_IP[1:nodaysvector[2,1],1] .= SingleUH(k[1,2], Timeresinsec, Ltymid[2], Ltymax[2], Ltyz[2])
-  end
 
   GrWP = GrWPoint(nodaysvector[:,1], i, NoL, AreasP, LayersP, Parea, mindist, delta_dP) # returns a vector of mm groundwater at different points perpendicular to the RN
   
