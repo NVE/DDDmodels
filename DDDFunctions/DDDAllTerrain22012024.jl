@@ -37,6 +37,7 @@ using LsqFit
 using Statistics
 using Dates
 using JLD2
+using LinearAlgebra
 # Preprocessing routines
 include("Big2SmallLambda.jl")
 include("CeleritySubSurface.jl")
@@ -304,6 +305,7 @@ gtcel = 0.99                            # threshold qunatile for groundwater cap
 CFR = 2.5*(Timeresinsec/86400)*0.0833   # Fixed as 1/12 of estimate of CX= 2.5 for 24 hours 
 len = Int(5*(86400/Timeresinsec))       # number of timestepes to spin up the model. Recommended to use timesteps equal to a minimum of 5 days to estimate the snowpack temperature.)
 weights_st = collect(1:len) / (len*(len+1)/2) # weights for computing snowpack skin temperature from air temperature of last "len" time steps
+skintempsnow = Vector{Float64}(undef, hson)
 
 startsim = startsim + len               # taking into account estimating snowpack temperature
 tempstart = temperature[:,(startsim-len+1):startsim] # matrix for storing temperatures when starting from states
@@ -507,7 +509,8 @@ for i in startsim:days
   TempstartUpdate!(tempstart,htemp, len) #Updating the tempstart with this timesteps temperature 
 
   # Snowpack skin temperature as (linearly decreasing) weighted mean of air temperature over past "len" time steps (cannot be >= 0)
-  skintempsnow = vec(min.(sum(weights_st' .* tempstart, dims=2), 0.))
+  skintempsnow = mul!(skintempsnow, tempstart, weights_st)
+  skintempsnow .= min.(skintempsnow, 0.0)
  
   for Lst in 1:Lty     # landscape types, one snow regime for each landscape type P and IP. The other Lty have no snow
 
@@ -840,17 +843,17 @@ for i in startsim:days
    
   if (kal==0)
   #Assigning outdata to vector, one vector for each timestep
-   simresult[1:5,i] = [year(dato), month(dato), day(dato), hour(dato), minute(dato)]
-   simresult[6:9,i] = [round(meanprecip,digits= 3),round(meantemp,digits = 3), discharge[i], round(Qm3s,digits=6)]
-   simresult[10:13,i] = [round(P_Qm3s,digits = 6),round(IP_Qm3s,digits = 6), round(Bog_Qm3s,digits = 6),round(middelsca[1],digits=3)]
-   simresult[14:16,i] = [round(snomag[1],digits = 6), round(lyrs[1],digits = 6),round(lyrs[2],digits = 6)]
-   simresult[17:20,i] = [round(totdef[1],digits=2), round(totdef[2],digits=2),round(sm[1],digits=6),round(sm[2],digits=6)]
-   simresult[21:24,i] = [round(ea[1],digits=6),round(ea[2],digits=6),round(Qmm,digits=6),round(smbog,digits=6)]
-   simresult[25:28,i] = [round(eabog,digits=6),round(qmm_state,digits=6), round(boglyrs,digits=6), round(middelsca[2],digits=3)]
-   simresult[29:32,i] = [round(snomag[2],digits= 6), round(wcs[1],digits=6),round(wcs[2],digits=6),round(subsurface[1],digits=6)]
-   simresult[33:34,i] = [round(subsurface[2],digits=6),round(OF_Qm3s,digits=6)]
-   simresult[35:36,i] = [round(outglac,digits=2), round(m_r_onglac,digits=2)]
-   simresult[37:39,i] = [round(GIsoil[1], digits=4),round(misoil[1], digits=4),round(snittT[1], digits=4)]
+   simresult[1:5,i] .= (year(dato), month(dato), day(dato), hour(dato), minute(dato))
+   simresult[6:9,i] .= (round(meanprecip,digits= 3),round(meantemp,digits = 3), discharge[i], round(Qm3s,digits=6))
+   simresult[10:13,i] .= (round(P_Qm3s,digits = 6),round(IP_Qm3s,digits = 6), round(Bog_Qm3s,digits = 6),round(middelsca[1],digits=3))
+   simresult[14:16,i] .= (round(snomag[1],digits = 6), round(lyrs[1],digits = 6),round(lyrs[2],digits = 6))
+   simresult[17:20,i] .= (round(totdef[1],digits=2), round(totdef[2],digits=2),round(sm[1],digits=6),round(sm[2],digits=6))
+   simresult[21:24,i] .= (round(ea[1],digits=6),round(ea[2],digits=6),round(Qmm,digits=6),round(smbog,digits=6))
+   simresult[25:28,i] .= (round(eabog,digits=6),round(qmm_state,digits=6), round(boglyrs,digits=6), round(middelsca[2],digits=3))
+   simresult[29:32,i] .= (round(snomag[2],digits= 6), round(wcs[1],digits=6),round(wcs[2],digits=6),round(subsurface[1],digits=6))
+   simresult[33:34,i] .= (round(subsurface[2],digits=6),round(OF_Qm3s,digits=6))
+   simresult[35:36,i] .= (round(outglac,digits=2), round(m_r_onglac,digits=2))
+   simresult[37:39,i] .= (round(GIsoil[1], digits=4),round(misoil[1], digits=4),round(snittT[1], digits=4))
   end
  
   grwpointresult[:,i] = GrWP # groundwater soil moisure [mm]
