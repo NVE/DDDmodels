@@ -29,26 +29,24 @@ if outx > 0
     
    ddist[1] = OF > 0 ? OF/outx : 0.                  # assigning distribution of outx to overland flow layer layer 1
 
-   for j in NoL:-1:2                   # Remember NoL is the slowest layer, 1 is the fastest and already accounted for
+   remaining = 1.0 - ddist[1]
+
+   @inbounds for j in NoL:-1:2                   # Remember NoL is the slowest layer, 1 is the fastest and already accounted for
    
     if redoutx > 0
     
-       differ = ddistx[j]-redoutx
-       if differ < 0                #i.e the deficit i layer j is less than input, input(outx (redoutx)) > deficit       
+       if ddistx[j] < redoutx                #i.e the deficit i layer j is less than input, input(outx (redoutx)) > deficit       
          ddist[j] = ddistx[j]/outx    # divide by outx informs us what frafction of outx needed for this layer
          redoutx -= ddistx[j] # must reduce  the input correspondingly       
        else               # i.e. deficit in layer j is more than input
-           if j < NoL
-             ddist[j] = 1.0 - sum(@view(ddist[(j+1):NoL]))-ddist[1]  #ddist[1] is already assigned
-           else
-             ddist[j] = 1.0 - ddist[1]                              #ddist[1] is already assigned
-           end
-           redoutx = 0.0
+         ddist[j] = remaining
+         redoutx = 0.0
        end
     else
         ddist[2:j] .= 0.
         break
     end
+    remaining -= ddist[j]
    end
    #println("outx_ordinary=",outx)
 else

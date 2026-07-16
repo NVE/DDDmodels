@@ -7,6 +7,17 @@
 #     Revised: 4.7.2019
 #--------------------------------------------------------------------------
 
+function sumlayers(Layers, nodaysvector)
+  out = 0.0
+  @inbounds for j in 1:length(nodaysvector)
+    @simd for i in 1:nodaysvector[j]
+      out += Layers[i,j]
+    end
+  end
+  return out
+end
+
+
 function LayerEvap!(Layers, nodaysvector, ea_S, layerUH, NoL)
   
   #Layers = [1.0 2.0 0.0 0.0 0.0; 2.0 3.0 4.0 0.0 0.0; 3.0 4.0 5.0 6.0 0.0; 2.0 2.0 2.0 2.0 0.35]
@@ -17,7 +28,7 @@ function LayerEvap!(Layers, nodaysvector, ea_S, layerUH, NoL)
 
   (ea_S == 0) && return 0.0 # return zero evaporation if input ea_S is zero
    
-  total_layers_last = sum(Layers)
+  total_layers_last = sumlayers(Layers, nodaysvector)
   
   #Below are the states (in mm) for each saturation level
   redea = ea_S
@@ -60,7 +71,7 @@ function LayerEvap!(Layers, nodaysvector, ea_S, layerUH, NoL)
         end
   end
    
-  total_layers_current = sum(Layers)
+  total_layers_current = sumlayers(Layers, nodaysvector)
   ea = total_layers_last - total_layers_current
    
 #  if (ea > 0) && abs(total_layers_last - (ea + total_layers_current)) > 1e-8 # COMMENTED OUT AS IT IS A CIRCULAR CHECK
