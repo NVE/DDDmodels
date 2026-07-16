@@ -27,7 +27,11 @@ function LayerEvap!(Layers, nodaysvector, ea_S, layerUH, NoL)
 
         (redea <= 0) && break # exit the layers loop if there is no more water to evaporate
         
-        aktMag = sum(@view(Layers[1:nodaysvector[j],j])) # this is correct because ea is a nonintegrated with a continuum variable as opposed to discharge
+        # this is correct because ea is a nonintegrated with a continuum variable as opposed to discharge
+        aktMag = 0.0
+        @simd for i in 1:nodaysvector[j]
+          aktMag += Layers[i,j]
+        end
 
         (aktMag == 0) && continue # skip to next layer if it is empty
         

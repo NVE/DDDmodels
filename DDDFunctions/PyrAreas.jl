@@ -26,14 +26,12 @@ function PyrAreas(NoL,totarea,maxDl,nodaysvector, layerUH, antHorlag)
    
   # total area distributed pr Layer
   Areas = zeros(antHorlag, NoL)                      # matrix(0.0, ncol=antHorlag,nrow=NoL)
-  for i in 1:NoL
-  
-    for j in 1:Int(nodaysvector[i])
-       Areas[j,i] = totarea.*layerUH[j,i] 
+  @inbounds for i in 1:NoL
+    @simd for j in 1:nodaysvector[i]
+       Areas[j,i] = totarea * layerUH[j,i]
     end
   end
   delta_d = maxDl ./ nodaysvector  # in meters (height as in the pyramid plots) pr. time-step box
-  
 
 #To be used in GRW_point subroutne: Layers__mm <- Layers*totarea/areas ######################
 return Areas, delta_d

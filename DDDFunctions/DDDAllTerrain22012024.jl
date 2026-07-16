@@ -617,11 +617,11 @@ for i in startsim:days
     outglac = sum(@views @. gisoil[:,1] * gwgt * snowfree[:,1])  # gwgt because it is going to be scaled by glacfrac later on
 
     if area[1] > 0 # area[1] includes area[5]
-      @views ddistx[:,1] = LayerCapacityUpdate(LayersP, nodaysvector[:,1], Magkap[:,1], NoL)
-     end
-     if area[2] > 0
-      @views ddistx[:,2] = LayerCapacityUpdate(LayersIP, nodaysvector[:,2], Magkap[:,2], NoL)
-     end 
+      @views LayerCapacityUpdate!(ddistx[:,1], LayersP, nodaysvector[:,1], Magkap[:,1], NoL)
+    end
+    if area[2] > 0
+      @views LayerCapacityUpdate!(ddistx[:,2], LayersIP, nodaysvector[:,2], Magkap[:,2], NoL)
+    end 
    
      gmltosoil[1] = misoil[1]*(1-(Ltyfrac[5]))+Ltyfrac[5]*(outglac+m_r_onglac) # input from rain, snow and glaciers always > 0 Needs some work!! [5] is glaciers
      gmltosoil[2] = sum(@views isoil[:,2] .* swgt[:,2]) # same as misoil[2]
@@ -664,10 +664,10 @@ for i in startsim:days
        
     #Estimating current capacity in Layers after Evapotranspiration
     if area[1] > 0
-      @views ddistx[:,1] = LayerCapacityUpdate(LayersP, nodaysvector[:,1], Magkap[:,1], NoL)
+      @views LayerCapacityUpdate!(ddistx[:,1], LayersP, nodaysvector[:,1], Magkap[:,1], NoL)
     end
-    if area[2] > 0
-      @views ddistx[:,2] = LayerCapacityUpdate(LayersIP, nodaysvector[:,2], Magkap[:,2], NoL)
+     if area[2] > 0
+      @views LayerCapacityUpdate!(ddistx[:,2], LayersIP, nodaysvector[:,2], Magkap[:,2], NoL)
     end 
 
     #Updating the deficit (for all sub surface layers, NOT overland flow layer)
