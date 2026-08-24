@@ -37,7 +37,9 @@ using LsqFit
 using Statistics
 using Dates
 using JLD2
+using StaticArrays
 using LinearAlgebra
+BLAS.set_num_threads(1)
 # Preprocessing routines
 include("Big2SmallLambda.jl")
 include("CeleritySubSurface.jl")
@@ -181,10 +183,6 @@ snro = zeros(hson, Lty)            #Snow density
 melt = zeros(hson, Lty)           #instead of degreeday melt (MW)
 snowdepth = zeros(hson, Lty)        #hmm..
 sndens = zeros(hson, Lty)           #hm ...
-#################################Parameters as vectors#############################################
-a0 = zeros(Lty) # scale parameter unit snow
-n0 = zeros(Lty) # shape parameter unit snow
-d = zeros(Lty)
 
 ######################    Parameters for Distance distributions    #######################################
 Ltyfrac = zeros(DDA) # areal frac.tion (AF) of permeable, impermeable, wetlands, glaciers and lakes(effective). AF of RN is negligible 
@@ -223,20 +221,10 @@ middelsca = zeros(Lty)
 snofritt = zeros(Lty)
 wcs = zeros(Lty)
 GIsoil = zeros(Lty)  # mean glacial melt 
-hfelt = zeros(hson)
 
 ########################Reading parameters#########################################################
 #Hyposgraphic curve and locations
-hfelt[1] = prm[5]+(prm[6]-prm[5])/2.0
-hfelt[2] = prm[6]+(prm[7]-prm[6])/2.0
-hfelt[3] = prm[7]+(prm[8]-prm[7])/2.0
-hfelt[4] = prm[8]+(prm[9]-prm[8])/2.0
-hfelt[5] = prm[9]+(prm[10]-prm[9])/2.0
-hfelt[6] = prm[10]+(prm[11]-prm[10])/2.0
-hfelt[7] = prm[11]+(prm[12]-prm[11])/2.0
-hfelt[8] = prm[12]+(prm[13]-prm[12])/2.0
-hfelt[9] = prm[13]+(prm[14]-prm[13])/2.0
-hfelt[10] = prm[14]+(prm[15]-prm[14])/2.0
+hfelt = @SVector [prm[i] + (prm[i+1] - prm[i])/2.0 for i in 5:14]
 
 phi = prm[16]*pi/180  #converts Lat degrees to radians lat
 thi = prm[17]*pi/180  #converts Lon degrees to radians Lon 
@@ -249,8 +237,10 @@ u = tprm[1] #prm[20]             # mean vind velocity [m/s]
 #Snow parameters
 pro = tprm[2] #prm[21]           # [fraction] liquid water content in snow
 TX = tprm[3] #prm[22]            # Threshold temp for rain/snow
-a0[1:Lty] .= prm[23:24]          # Alfa null in snofall unit distribution P, IP
-d[1:Lty] .= prm[25:26]           # Decorrelation length (Measured in n) for precipitation P, IP
+a0 = @view(prm[23:24])    # scale parameter of nit snow: Alfa null in snofall unit distribution P, IP
+d = @view(prm[25:26])     # Decorrelation length (Measured in n) for precipitation P, IP
+unitsnow = 0.1            # mean of unit snow [mm]
+n0 = unitsnow*a0          # shape parameter of unit snow
 
 # Misc.
 Timeresinsec = prm[27]           # temporal resolution of simulations, in seconds
@@ -276,17 +266,6 @@ Ltymid[1:3] .= prm[48:50]    # Mean permeable, impermeable, wetlands, lakes(effe
 Ltymid[5:DDA] .= prm[51:52]    # Mean permeable, impermeable, wetlands, lakes(effective), glaciers and RN 
 Ltystd[5:DDA] .= prm[53:54]    # Std. dev. permeable, impermeable, wetlands, lakes(effective), glaciers and RN 
 Ltyz[1:3] .= prm[55:57]      # frac zero dist from RN, permeable, impermeable, wetlands, lakes(effective), glaciers and RN
-# Glacierfractions of elevation zones
-g1    = prm[58]       # areal fraction of glaciers in first elevation zone
-g2    = prm[59]
-g3    = prm[60]
-g4    = prm[61]
-g5    = prm[62]
-g6    = prm[63]
-g7    = prm[64]
-g8    = prm[65]
-g9    = prm[66]
-g10   = prm[67]
 
 meandailyP = prm[68]   # daily mean value precipitation
 meandailyT = prm[69]   # daily mean value temperature
@@ -329,8 +308,6 @@ end
 !silent && println("Mad= ", MAD)
 
 #Constants
-unitsnow = 0.1                          # mean of unit snow [mm]
-n0 = unitsnow*a0                        # shape parameter of unit snow
 gtcel = 0.99                            # threshold qunatile for groundwater capacity -> Overland flow
 CFR = 2.5*(Timeresinsec/86400)*0.0833   # Fixed as 1/12 of estimate of CX= 2.5 for 24 hours 
 len = Int(5*(86400/Timeresinsec))       # number of timestepes to spin up the model. Recommended to use timesteps equal to a minimum of 5 days to estimate the snowpack temperature.)
@@ -362,8 +339,8 @@ area = Ltyfrac.* totarea                    # areas of differnt Lty, a vector
 
 #elevarea = (totarea/hson)                  # area pr elevationzone
 elevarea = ((area[1]+area[3])/hson)        # P 8including glaciers) and Bogs area pr elevationzone
-# TEST STATIC ARRAYS on gca!
-gca = Float64[g1,g2,g3,g4,g5,g6,g7,g8,g9,g10]     # fraction of glaciated area per elevation zone 
+# Glacierfractions of elevation zones (areal fraction of glaciers per elevation zone)
+gca = @view(prm[58:67]) # fraction of glaciated area per elevation zone 
 soilca = 1.0 .- gca                          # fraction of non-glaciated area per elevation zone
 
 # gwgt is the fraction of glaciated area pr elevation zone in relation to total glaciated area 
@@ -413,12 +390,8 @@ for Lst in 1:Lty
     nodaysvector[:,Lst] = trunc.(Int, Ltymax[Lst] ./ k[:,Lst] ./ Timeresinsec) .+ 1 # integer time steps
 end
 
-if area[1] > 0
- layerUH_P = zeros(antHorlag[1], NoL)
-end
-if area[2] > 0
- layerUH_IP = zeros(antHorlag[2], NoL)  
-end 
+layerUH_P = area[1] > 0 ? zeros(antHorlag[1], NoL) : zeros(1, NoL)
+layerUH_IP = area[2] > 0 ? zeros(antHorlag[2], NoL) : zeros(1, NoL)
  
 for i in 1:NoL
     layerUH_P[1:nodaysvector[i,1],i] .= SingleUH(k[i,1], Timeresinsec, Ltymid[1], Ltymax[1], Ltyz[1])
@@ -427,12 +400,8 @@ for i in 1:NoL
     end
 end
 
-if area[1] > 0
- overlandUH_P = copy(layerUH_P)
-end
-if area[2] > 0
- overlandUH_IP = copy(layerUH_IP)
-end
+overlandUH_P = copy(layerUH_P)
+overlandUH_IP = copy(layerUH_IP)
 
 #UH for RIVER/Conduits, normally distributed #6
 #number of time units in river routing, rounded up. If set equal to one day, time is actually less
@@ -459,14 +428,8 @@ QRivxBog = zeros(noDT)
 QRivxOF = zeros(noDT)
 
 #Groundwater layers; 2dim levels, 1 fastest, NoL slowest#
-if area[1] > 0
-  LayersP = zeros(antHorlag[1], NoL)
-end
-if area[2] > 0
-  LayersIP = zeros(antHorlag[2], NoL) 
-else
-  LayersIP = zeros(1, NoL)
-end 
+LayersP = area[1] > 0 ? zeros(antHorlag[1], NoL) : zeros(1, NoL)
+LayersIP = area[2] > 0 ? zeros(antHorlag[2], NoL) : zeros(1, NoL)
 
 BogLayers = zeros(antBogsteps) # no vertical dimension
 LakeLayers = zeros(nodaysLake) # no vertical dimension 
@@ -533,15 +496,15 @@ for i in startsim:days
   DN = dayofyear(dato)           #daynumber        
   
   #Reads Precipitation and temperature for each elevation zone   
-  htemp = temperature[:,i]
-  hprecip = precipitation[:,i]
+  htemp = @view(temperature[:,i])
+  hprecip = @view(precipitation[:,i])
 
   meanprecip = mean(hprecip)
   meantemp =  mean(htemp)
   TempstartUpdate!(tempstart,htemp, len) #Updating the tempstart with this timesteps temperature 
 
   # Snowpack skin temperature as (linearly decreasing) weighted mean of air temperature over past "len" time steps (cannot be >= 0)
-  skintempsnow = mul!(skintempsnow, tempstart, weights_st)
+  mul!(skintempsnow, tempstart, weights_st)
   skintempsnow .= min.(skintempsnow, 0.0)
  
   for Lst in 1:Lty     # landscape types, one snow regime for each landscape type P and IP. The other Lty have no snow
@@ -591,10 +554,11 @@ for i in startsim:days
       alfa[idim,Lst] = FromSnow[6] 
       ny[idim,Lst] = FromSnow[7]
      
+      # Reduction in SWE above a threshold, only for calibration (FIX), breaking reproducibility
       if (spd[idim,Lst] > 10000)
 	    if(kal == 1)
           spd[idim,Lst]  = 8000.0
-	      skorr= 0.9*skorr
+	      skorr *= 0.9
           !silent && println("Skorr is reduced, you build snowtowers = trend in SWE")
 	    end 
       end

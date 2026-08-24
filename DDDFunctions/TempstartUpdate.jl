@@ -7,7 +7,7 @@
 #     Revised: 19.02.2024
 #--------------------------------------------------------------------------
 
-function TempstartUpdate!(tempmatrix::Matrix{Float64}, temps::Vector{Float64}, len::Int)
+function TempstartUpdate!(tempmatrix, temps, len)
 # tempmatrix: timeseries of length 5 days 8length dep on temporal resolution) for 10 elevation zones
 # temps: this timesteps temperatures
     nrows = size(tempmatrix, 1)

@@ -36,10 +36,10 @@ function SolradTransAlbedo(DN,Ta,taux,SWE,regn,thr,Timeresinsec,TSS,PS,phi,thi,C
     ss = 12.0
   end
 
-   TTList = zeros(Float64,24)  #vector for Transmissivity
-   dingom = zeros(Float64,24)  #vector for solar zenith angle
-   zenangtid = zeros(Float64,24)
-   SW = zeros(Float64,24)  #vector for short wave radiation per hour
+   TTList = @MVector(zeros(Float64,24))  #vector for Transmissivity
+   dingom = @MVector(zeros(Float64,24))  #vector for solar zenith angle
+   zenangtid = @MVector(zeros(Float64,24))
+   SW = @MVector(zeros(Float64,24))  #vector for short wave radiation per hour
     
    S0 = (118.1*10^3)/86400                  #Solar constant kJ/m2*s. Dingman 's number'
     

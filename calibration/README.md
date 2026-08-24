@@ -63,19 +63,28 @@ The presence of the empty file `root_output/<CATCHMENT>/done` means that calibra
 until the stopping criterion for that catchment: If the calibration script is re-run, this
 catchment will be skipped.
 
-## 5. Possible improvements
 
-- OverlandFlowDynamicDD!: output responseUH without overwriting layerUH, which then needs to be reset to its initialization value:
-  these need to be treated as 2 separate variables.
+## 5. Notes
+
+To fix the format of MNA4 PTQ-files in `/hdata/fou/flom/data/met_nordic_analysis_v4`:
+
+1. create the subfolder `semicolon_separated`, copy all ptq files there and run `sed -i 's/[[:space:]]\+/;/g' *.ptq`
+2. add missing column with minutes (5th) with `sed -i 's/^\([^;]*;[^;]*;[^;]*;[^;]*\);/\1;0;/' *.ptq`
+
+
+## 6. Possible improvements
+
 - Use StaticArrays for unmutable arrays whose size is known at compile time.
+- Calibration logging of all candidate solutions by appending vectors to a thread-safe data structure
+  inside the wrapper, so that DDD does not write any output file.
 - Check that functions are type-stable to avoid performance losses.
-- Specify which parameters should be calibrated and which have a fixed value in settings,
-  instead of using collapsed ranges, to reduce the formal number of parameters.
+- Reduce the formal number of parameters to be calibrated based on provided bounds:
+  detect fixed parameters -> fixed_values, fixed_positions -> makeEvaluator -> ...
 - Sensitivity analysis (e.g. [GlobalSensitivity.jl](https://docs.sciml.ai/GlobalSensitivity/stable/))
 - Use [workspaces](https://pkgdocs.julialang.org/dev/creating-packages/#Test-specific-dependencies)
    to define test- and calibration-specific dependencies.
 
-## 6. Questions
+## 7. Questions
 
 - NewSnowDensityEB.jl: conversion to Fahrenheit (overwriting) propagates to DensityAge.jl via NewSnowSDEB.jl:
   is it intentional?
@@ -84,3 +93,15 @@ catchment will be skipped.
   temperature time series further back in time?
 - LayerEvap.jl: reset evapUH to 0 where evapUH >= Layers. Why not Layers set to 0?
   Why `if sum(Layers) > 0` on each layer's iteration?
+- The following code block in the main function breaks reproducibility between calibration and simulation
+  runs, in addition to removing snow from the water balance. It is now temporarily commented out, but a
+  stable solution is needed:
+  ```julia
+  if (spd[idim,Lst] > 10000)
+	    if(kal == 1)
+          spd[idim,Lst]  = 8000.0
+	        skorr= 0.9*skorr
+          !silent && println("Skorr is reduced, you build snowtowers = trend in SWE")
+	    end 
+  end
+  ```

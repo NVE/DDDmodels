@@ -37,7 +37,15 @@ mutable struct ParameterSet
     end
 end
 
-function getHydrologicParameters(parameters::ParameterSet)::Vector{Float64}
+function getValue(parameters::ParameterSet, name::String)
+    parameters.values[findfirst(==(name), parameters.names)]
+end
+
+function setValue!(parameters::ParameterSet, name::String, value::Float64)
+    parameters.values[findfirst(==(name), parameters.names)] = value
+end
+
+function getHydrologicParameters(parameters::ParameterSet)
     parameters.values[parameters.positions_hyd]
 end
 
@@ -82,7 +90,7 @@ function loadParameterRanges(id::String, settings::SettingsCalibration)::Ordered
     end
 end
 
-function runDDD(paths_ptq::Dict{String,String}, params_hyd::Vector{Float64}, params_all::Vector{Float64}, spinup::Int, dir_out::String, txt::String)
+function runDDD(paths_ptq::Dict{String,String}, parameters::ParameterSet, spinup::Int, dir_out::String, txt::String)
     print("\tRuns with ", txt)
     kge_score = Dict(k => NaN for k in eachindex(paths_ptq))
     Threads.@threads for p in collect(eachindex(paths_ptq))
@@ -90,18 +98,21 @@ function runDDD(paths_ptq::Dict{String,String}, params_hyd::Vector{Float64}, par
         path_out_r2 = joinpath(dir_out, "r2_$(p).csv")
         timesteps, precipitation, temperature, discharge = loadPTQ(paths_ptq[p])
         Random.seed!(0)
-        kge_score[p] = ddd(timesteps, precipitation, temperature, discharge, 1, params_hyd,
-                           params_all, path_out_series, path_out_r2, 0, 0, 0, spinup, true)[3]
+        kge_score[p] = ddd(timesteps, precipitation, temperature, discharge, 1,
+                           getHydrologicParameters(parameters), parameters.values,
+                           path_out_series, path_out_r2, 0, 0, 0, spinup, true)[3]
     end
     println(" -> KGE (period): ", join(["$(round(v, digits=4)) ($k)" for (k, v) in kge_score], ", "))
 end
 
 function makeEvaluator(timesteps::Vector{DateTime}, precipitation::Matrix{Float64}, temperature::Matrix{Float64},
-                       discharge::Vector{Float64}, parameters_all::Vector{Float64}, spinup::Int, path_r2::String)
+                       discharge::Vector{Float64}, parameters::ParameterSet, spinup::Int, path_r2::String)
     function wrapper(hydpar::Vector{Float64})
+        params_copy = deepcopy(parameters)
+        setHydrologicParameters!(params_copy, hydpar)
         Random.seed!(0)
         kge_score = ddd(timesteps, precipitation, temperature, discharge,
-                        1, hydpar, parameters_all, "", path_r2, 0, 0, 1, spinup, true)[3]
+                        1, hydpar, params_copy.values, "", path_r2, 0, 0, 1, spinup, true)[3]
         return 1. - kge_score
     end
 end
@@ -153,10 +164,47 @@ function plotParameters(id::String, pct_keep::Int, dir_fig::String, settings::Se
     savefig(fig, joinpath(dir_fig, "KGE_parameters_$(id).pdf")) # to display interactively: gui(fig)
 end
 
+function calibrateCatchment(id::String, settings::SettingsCalibration)
+    # Root folder for catchment output
+    dir_out = mkpath(dirCatchment(id, settings))
+    println("output in ", dir_out)
+    # Paths to PTQ input for each period
+    paths_ptq = pathsPTQ(id, settings)
+    # Load initial parameters and run DDD
+    path_inipar = pathIniPar(id, settings)
+    parameters = ParameterSet(path_inipar)
+    dir_out_ini = mkpath(joinpath(dir_out, "initial"))
+    runDDD(paths_ptq, parameters, settings.spinup, dir_out_ini, "initial parameters")
+    # Load parameter ranges
+    ranges = collect(values(loadParameterRanges(id, settings)))
+    # Calibrate
+    dir_out_cal = mkpath(joinpath(dir_out, "calibrated"))
+    dir_log_cal = mkpath(joinpath(dir_out_cal, "log"))
+    template_path_r2 = joinpath(dir_log_cal, "r2.csv")
+    timesteps, precipitation, temperature, discharge = loadPTQ(paths_ptq["calibration"])
+    evaluator = makeEvaluator(timesteps, precipitation, temperature, discharge,
+                              parameters, settings.spinup, template_path_r2)
+    print("\tCalibration started on ", Dates.format(now(), "yyyy-mm-dd HH:MM"))
+    res = redirect_stdio(stdout=devnull, stderr=devnull) do
+        bboptimize(evaluator; SearchRange=ranges, MaxSteps=settings.steps_max,
+                   TraceMode=:silent, SaveTrace=true, NThreads=max(Threads.nthreads() - 1, 1))
+    end
+    print(" and ended after ", canonicalize(Second(Int(round(res.elapsed_time)))))
+    println(" -> KGE: ", round(1 - best_fitness(res), digits=4))
+    # Write calibrated parameters to file
+    setHydrologicParameters!(parameters, best_candidate(res))
+    toCSV(parameters, joinpath(dir_out_cal, "parameters.csv"))
+    # Parameter plots
+    plotParameters(id, 50, dir_out, settings)
+    # Run DDD with calibrated parameters
+    runDDD(paths_ptq, parameters, settings.spinup, dir_out_cal, "calibrated parameters")
+    # Create empty file ("done") to be used in case of restart to skip this catchment
+    touch(pathDone(id, settings))
+end
+
 function calibrateMultipleCatchments(path_toml::String)
     # Load settings from TOML file
     settings = from_toml(SettingsCalibration, path_toml)
-    num_threads = max(Threads.nthreads() - 1, 1)
     # Load catchment list and keep only those not done yet
     catchments = readCatchmentList(settings.path_catchments_list)
     num_tot = length(catchments)
@@ -172,40 +220,8 @@ function calibrateMultipleCatchments(path_toml::String)
     end
     # Loop through catchments
     for (n, id) in enumerate(catchments)
-        ## Root folder for catchment output
-        dir_out = mkpath(dirCatchment(id, settings))
-        println("\nCATCHMENT ", id, " (", n, " of ", length(catchments), "): output in ", dir_out)
-        ## Paths to PTQ input for each period
-        paths_ptq = pathsPTQ(id, settings)
-        ## Load initial parameters and run DDD
-        path_inipar = pathIniPar(id, settings)
-        parameters = ParameterSet(path_inipar)
-        dir_out_ini = mkpath(joinpath(dir_out, "initial"))
-        runDDD(paths_ptq, getHydrologicParameters(parameters), parameters.values, settings.spinup, dir_out_ini, "initial parameters")
-        ## Load parameter ranges
-        ranges = collect(values(loadParameterRanges(id, settings)))
-        ## Calibrate
-        dir_out_cal = mkpath(joinpath(dir_out, "calibrated"))
-        dir_log_cal = mkpath(joinpath(dir_out_cal, "log"))
-        template_path_r2 = joinpath(dir_log_cal, "r2.csv")
-        timesteps, precipitation, temperature, discharge = loadPTQ(paths_ptq["calibration"])
-        evaluator = makeEvaluator(timesteps, precipitation, temperature, discharge,
-                                  parameters.values, settings.spinup, template_path_r2)
-        print("\tCalibration started on ", Dates.format(now(), "yyyy-mm-dd HH:MM"))
-        res = redirect_stdio(stdout=devnull, stderr=devnull) do
-            bboptimize(evaluator; SearchRange=ranges, MaxSteps=settings.steps_max, TraceMode=:silent, SaveTrace=true, NThreads=num_threads)
-        end
-        print(" and ended after ", canonicalize(Second(Int(round(res.elapsed_time)))))
-        println(" -> KGE: ", round(1 - best_fitness(res), digits=4))
-        ## Write calibrated parameters to file
-        setHydrologicParameters!(parameters, best_candidate(res))
-        toCSV(parameters, joinpath(dir_out_cal, "parameters.csv"))
-        ## Parameter plots
-        plotParameters(id, 50, dir_out, settings)
-        ## Run DDD with calibrated parameters
-        runDDD(paths_ptq, getHydrologicParameters(parameters), parameters.values, settings.spinup, dir_out_cal, "calibrated parameters")
-        ## Create empty file ("done") to be used in case of restart to skip this catchment
-        touch(pathDone(id, settings))
+        print("\nCATCHMENT ", id, " (", n, " of ", length(catchments), "): ")
+        calibrateCatchment(id, settings)
     end
 end
 

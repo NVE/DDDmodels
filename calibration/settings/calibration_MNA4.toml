@@ -1,0 +1,11 @@
+root_output = "/hdata/hmdata01/DDD_calibration/output_MNA4/"
+path_catchments_list = "settings/catchments/catchments_251120.txt"
+path_parameter_ranges = "settings/parameter_ranges/parameter_ranges_251120.toml"
+template_path_ptq = "/hdata/fou/flom/data/met_nordic_analysis_v4/semicolon_separated/<CATCHMENT>.0<PERIOD>.ptq"
+template_path_inipar = "/hdata/hmdata01/DDD_calibration/output_251120/<CATCHMENT>/calibrated/rescaled_parameters_1h.csv"
+
+spinup = 365 # model spinup time (days)
+steps_max = 1000 # maximum number of steps used by the optimisation algorithm
+
+[periods]
+calibration = ""

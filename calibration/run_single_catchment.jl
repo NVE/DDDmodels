@@ -16,24 +16,3 @@ function wrappersinglerun(input)
 end
 # Timing
 @btime wrappersinglerun(input)
-
-#using Profile
-#Profile.clear()
-#@profile runSingleCatchment(path_settings, id, period)
-#Profile.print(format=:tree, sortedby=:count, maxdepth=10, mincount=5)
-
-#using InteractiveUtils
-#@code_warntype runSingleCatchment(path_settings, id, period)
-
-# ProfileView displays works in REPL and not script
-#include("calibration.jl")
-#using ProfileView
-#using Cthulhu
-#@profview runSingleCatchment("settings/calibration_251120.toml", "2.11", "calibration")
-
-# REPL
-#using Profile, OwnTime
-#include("calibration.jl")
-#Profile.clear()
-#@profile runSingleCatchment("settings/calibration_251120.toml", "2.11", "calibration")
-#owntime()
