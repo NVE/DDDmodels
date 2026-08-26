@@ -7,6 +7,13 @@ Julia version and libraries are defined in `Project.toml` and `Manifest.toml`:
 See [Pkg documentation](https://pkgdocs.julialang.org/v1/environments/#Using-someone-else's-project)
 for how to recreate the Julia environment to calibrate DDD.
 
+To be able to run DDD in Jupyter notebooks using the project environment,
+install a kernel pointing to the project folder (i.e. the folder containing `Project.toml`
+and `Manifest.toml`, e.g. `/home/user/DDDmodels`) in the following way:
+
+- start Julia using the project environment: `julia --project /home/user/DDDmodels`
+- install the kernel giving it a name (e.g. `Julia DDD`): `installkernel("Julia DDD", "--project=/home/user/DDDmodels")`
+
 
 ## 2. How to set up and run a calibration
 
