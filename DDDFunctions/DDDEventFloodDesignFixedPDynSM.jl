@@ -64,6 +64,7 @@ OF = zeros(Lty)
 ########################Reading parameters#########################################################
 
 # Misc.
+pkorr = prm.val[2]
 Timeresinsec = prm.val[3]       # in seconds
 MAD[1:Lty] .= prm.val[4]     # mean annual discharge
 totarea = prm.val[5]            # Total area of catchment in m2
@@ -97,15 +98,24 @@ Precresinsec = prm.val[25]  # Duration of extreme value precipitation
 GPloc = prm.val[26] # location parameters of Extremevalue precipitation (Generalised Pareto)
 GPsc = prm.val[27] # Scale parameters of Extremevalue precipitation (Generalised Pareto)
 GPsh = tprm[4] # prm.val[28] # Shape parameters of Extremevalue precipitation (Generalised Pareto)
-SMShConst =prm.val[29] # We estimate the Shape parameter of gamma distributed SM as a function of precip through linear regression, the constant 
-SMShSlope =prm.val[30] # We estimate the Shape parameter of gamma distributed SM as a function of precipt hrough linear regression, the slope 
-SMScConst = prm.val[31] # We estimate the Scale parameter of gamma distributed SM as a function of precip through linear regression, the constant 
-SMScSlope = prm.val[32] # We estimate the Scale parameter of gamma distributed SM as a function of precip through linear regression, the slope
-    
+
+#Original linear approach to SM distribution
+#SMShConst =prm.val[29] # We estimate the Shape parameter of gamma distributed SM as a function of precip through linear regression, the constant 
+#SMShSlope =prm.val[30] # We estimate the Shape parameter of gamma distributed SM as a function of precipt hrough linear regression, the slope 
+#SMScConst = prm.val[31] # We estimate the Scale parameter of gamma distributed SM as a function of precip through linear regression, the constant 
+#SMScSlope = prm.val[32] # We estimate the Scale parameter of gamma distributed SM as a function of precip through linear regression, the slope
+ 
+#new approach to SM Distribution: Linear semivariogram 5.1.2026
+SMconst =prm.val[29] # We state that the shape is a constant
+#The other parameteres are estimated using a linear variogram: we need range of prec, nugget and sill (level is nugget plus sill). NB scale by SMConst
+SMrange =prm.val[30] # precipitation value where the SM levels off. Estimated by eye
+SMnugget = prm.val[31] # SM value at 1 mm. Estimated by Eye
+SMsill = prm.val[32] # SMnugget + SMsill is the SM level where it has levellled off
+
 ICap[1] = tprm[5]/ 3600.0  # prm.val[31]/3600.0 # Infiltration capacity for Permeable[1] surfaces. Input from paramfile mm/hour. Previously (1000)*(GshInt*GscInt*Ltymid[1]/Timeresinsec)
 ICap[2] = prm.val[34]/3600.0# # Infiltration capacity for ImPermeable[2]  previously as ICap[1]*0.002  
-GshRes[1:(Lty)] .= prm.val[35]
-GscRes[1:(Lty)] .= prm.val[36]
+GshRes[1:(Lty)] .= prm.val[35] # Estimated shape parameter of gamma distributed SM from running the DDDv2, NOT conditionsl on precip 
+GscRes[1:(Lty)] .= prm.val[36] # Estimated scale parameter of gamma distributed SM from running the DDDv2, NOT conditionsl on precip 
 #Done reading parameters
 gtcel = 0.99 # Quantile decribing full subsurface 
 
@@ -155,7 +165,7 @@ for Lst in 1: Lty
   Magkap[Lst,1:NoL], M[Lst] = LayerEstimationDesignEmpSM(GshRes[Lst],GscRes[Lst], NoL, gtcel) 
 end
 #println("Magkap ", Magkap[1,1]," ",Magkap[1,2] )
-#println("M fra Mainruitne ", M[1])
+#println("M fra runof the DDDv2 ", M[1])
 #println("Shape Sm= ",GshRsrv[1])
 #println("Scale Sm = ", GscRsrv[1]) 
 #Note that MAD is for the entire catchment. It is fractioned in the above subroutine
@@ -166,14 +176,15 @@ precip_rounds = Int(trunc(ext_precip_max*2))  # Number of different precip value
 
     simresult = zeros(days2,24)        # matrix which into the results are written
     simresult2 = zeros(NumSim*precip_rounds,24)        # matrix which into the results are written
-    simresult3 = zeros(NumSim*precip_rounds,(5*days2)) # matrix which into the results are written, 50 because the initial precip is evetually multiplied with 50 
+    simresult3 = zeros(NumSim*precip_rounds,(4*days2)) # matrix which into the results are written, 50 because the initial precip is evetually multiplied with 50 
  
 ###################################################################################
 
 for l in 1: precip_rounds
    ext_precip = 1 + (l-1)*0.5 # Fixed (extreme precipitation value) for critical duration to be dragged through all possible combinations of conditional soilmoisture and precip sequence
-
    println("Precip= ", ext_precip)
+   ext_precip_orig = ext_precip
+   ext_precip = pkorr*ext_precip # we need to correct precipitation when it enters the model
  # ext_precip = 50.0  #Now supplied by the runscript. fixed extreme value: Risvollan X years, 15 minutes duration. IVF KSS
   
 #############################################################################################
@@ -219,13 +230,24 @@ QRivxPrecip_contrib = zeros(noDT)
 QRivxInit = zeros(noDT)
 
 #Random element 1, Sunbsurface state
-# we have that soilmoisture (SM) distribution is gamma distributed
-# and a function of precipitation
-# Distribution parameters SMSh and SMSc are regressed with precipitation (ext_precip)
-SMSh = SMShConst + SMShSlope*ext_precip # Shape parameter 
-SMSc = SMScConst + SMScSlope*ext_precip # Scale parameter
+# we have that soilmoisture (SM) distribution is gamma distributed and a function of precipitation
 
- grvstate = rand(Gamma(SMSh ,SMSc),1) # Draw groundwater state [mm], ordinary distributions (not extreme),Gamma(shape ,scale) 
+#The following relationship shoukld be derived with corrected precipitation 09.01.2026
+#We use a semivariogram-type of function to describe the relationship(if any) between SM and precip
+SMSh = SMconst
+if (ext_precip < SMrange ) # precipitation is less than range
+   # Shape parameter We propose a constant shape  
+ SMSc = (1/SMconst)*(SMnugget + (SMsill/SMrange)*ext_precip) # Scale parameter
+end
+if (ext_precip >= SMrange ) # precipitation is more than range SMnugget + SMsill is the level of SM
+  SMSc = (1/SMconst)*(SMnugget + SMsill)
+end
+
+# Distribution parameters SMSh and SMSc are regressed with precipitation (ext_precip)
+#SMSh = SMShConst + SMShSlope*ext_precip # Shape parameter 
+#SMSc = SMScConst + SMScSlope*ext_precip # Scale parameter
+
+grvstate = rand(Gamma(SMSh ,SMSc),1) # Draw groundwater state [mm], ordinary distributions (not extreme),Gamma(shape ,scale) 
  #println("grvstate, ext_precip, M[1] =", grvstate, " ", ext_precip, " ",M[1])
 ####################################################################################
 # This is for variabel celerity conditioned by saturation 
@@ -290,7 +312,8 @@ for i in 1: NoL
    layerUH_IP[i,1:nodaysvector[Lst,i]] .= SingleUH(k[Lst,i], Timeresinsec, Ltymid[Lst], Ltymax[Lst], Ltyz[Lst])
   end
 end
-    
+
+
 #Groundwater layers; 2dim levels, 1 fastest, NoL slowest#
 LayersP = zeros(NoL,antHorlag[1])
 LayersIP = zeros(NoL,antHorlag[2])
@@ -300,7 +323,7 @@ LayersInit = zeros(NoL,antHorlag[1])
 ddistx[1,1:NoL] = LayerCapacityUpdate(LayersP, nodaysvector[1,1:NoL], Magkap[1,1:NoL], NoL)
 ddistx[2,1:NoL] = LayerCapacityUpdate(LayersIP, nodaysvector[2,1:NoL], Magkap[2,1:NoL], NoL)    
  
-ICapdummy[1:2] .= 1000.0 #infinite infiltration capacity to establish subsurface states Does not apply, ICap is not 
+ICapdummy[1:2] .= 3000.0 #infinite infiltration capacity to establish subsurface states Does not apply, ICap is not 
     # used in GrvInputDistributionICap 
 #println("distx1_1 ",ddistx[1,1], " ",ddistx[1,2]) #OK 13.06
 #println("distx2_1 ",ddistx[2,1], " ",ddistx[2,2]) #OK 13.06   
@@ -316,12 +339,25 @@ ICapdummy[1:2] .= 1000.0 #infinite infiltration capacity to establish subsurface
 #println("ddist2_1 ",ddist[2,1], " ",ddist[2,2])
 
 #initializing the saturation Layers, putting water in - groundwater state, needs ddist
+# 15.01.2026 From the analysio of Matthew's catchment, We find that the initializing of SS is done using a steadyy state approach- slightly more steep
+layerUH_PInit = zeros(NoL,antHorlag[1])
+layerUH_IPInit = zeros(NoL,antHorlag[2]) 
+
+    for i in 1: NoL  
+      for Lst in 1:1  
+        layerUH_PInit[i,1:nodaysvector[Lst,i]] .= SingleUHInit(k[Lst,i], Timeresinsec, Ltymid[Lst], Ltymax[Lst], 0)   ## written 15.01.2026
+      end
+      for Lst in 2:2 
+        layerUH_IPInit[i,1:nodaysvector[Lst,i]] .= SingleUHInit(k[Lst,i], Timeresinsec, Ltymid[Lst], Ltymax[Lst], 0) ## written 15.01.2026
+      end
+     end
+
     for Lst in 1:Lty
       if(Lst==1)
-         LayersP = LayerInitUrbanDesign(ddist[Lst,1:NoL],grvstate[1], LayersP, layerUH_P, nodaysvector[Lst,1:NoL], NoL)
+         LayersP = LayerInitUrbanDesign(ddist[Lst,1:NoL],grvstate[1], LayersP, layerUH_PInit, nodaysvector[Lst,1:NoL], NoL)   # modified 15.01.2026
     end       
       if(Lst==2)
-        LayersIP = LayerInitUrbanDesign(ddist[Lst,1:NoL],grvstate[1], LayersIP, layerUH_IP, nodaysvector[Lst,1:NoL], NoL)       
+        LayersIP = LayerInitUrbanDesign(ddist[Lst,1:NoL],grvstate[1], LayersIP, layerUH_IPInit, nodaysvector[Lst,1:NoL], NoL) # modified 15.01.2026
       end
     end  
 # We are set, stauration wise, for  extrem precipitation input
@@ -454,10 +490,10 @@ for i in 1:days2 #Length of precip timeseries +5 (recession)
   #Updating the saturation Layers. The "boxes are shifted on step ahead"
     for Lst in 1:Lty
       if(Lst==1)
-         LayerUpdate!(ddist[Lst,1:NoL],outx[Lst], LayersP, layerUH_P, nodaysvector[Lst,1:NoL], NoL)
+         LayersP = LayerUpdate(ddist[Lst,1:NoL],outx[Lst], LayersP, layerUH_P, nodaysvector[Lst,1:NoL], NoL)
     end       
       if(Lst==2)
-        LayerUpdate!(ddist[Lst,1:NoL],outx[Lst], LayersIP, layerUH_IP, nodaysvector[Lst,1:NoL], NoL)       
+        LayersIP = LayerUpdate(ddist[Lst,1:NoL],outx[Lst], LayersIP, layerUH_IP, nodaysvector[Lst,1:NoL], NoL)       
       end
     end  
    
@@ -553,7 +589,7 @@ for i in 1:days2 #Length of precip timeseries +5 (recession)
    #println("WBIP = ", WBIP," Total inn IP= ",SIPinn1+ SIPinn2)                                             
                                                   
   #Assigning outdata to vector, one vector for each timestep
-   simresult[i, 1:5] = [i,round(ext_precip[1],digits=6),round(QRD,digits=6),
+   simresult[i, 1:5] = [i,round(ext_precip_orig[1],digits=6),round(QRD,digits=6),
                 round(QRDP,digits = 6),round(QRDIP,digits = 6)]
    simresult[i, 6:9] = [round(lyrs[1],digits = 6),round(lyrs[2],digits = 6),round(totdef[1],digits=2), 
                 round(totdef[2],digits=2)]
@@ -581,7 +617,7 @@ end # for days2, i
     simresult3[((l-1)*NumSim)+j,(days2+1):(days2+days2)]= qberegn[1:days2]
     simresult3[((l-1)*NumSim)+j,(days2+days2+1):(days2+days2+days2)]= lyrberegn[1:days2]
     simresult3[((l-1)*NumSim)+j,(days2+days2+days2+1):(days2+days2+days2+days2)]= Initberegn[1:days2] # SSberegn[1:days2]            # Runoff contribution fra SS
-    simresult3[((l-1)*NumSim)+j,(days2+days2+days2+days2+1):(days2+days2+days2+days2+days2)]= qberegn[1:days2].-Initberegn[1:days2] # Runoff contribution fra Precip
+    #simresult3[((l-1)*NumSim)+j,(days2+days2+days2+days2+1):(days2+days2+days2+days2+days2)]= qberegn[1:days2].-Initberegn[1:days2] # Runoff contribution fra Precip
     #simresult3[j,(days2+days2+days2+days2+days2+1):(days2+days2+days2+days2+days2+days2)]= Initberegn[1:days2]
     #Need to start with a dry cathment again
        
@@ -595,8 +631,8 @@ toptitles = ["TimestpMaxFld","ExtPrecipDur","maxQ","maxQ_P","maxQ_IP","SST_P","S
     "SS_P","SS_IP","OF", "OF_P","OF_IP","SSF_P","SSF_IP","InitSS", "Shp1", "Shp2", "TimesetpMaxPrec","PrecipMax", "SScel"]
   toptitles2 = ["Prec1","Prec2","Prec3","Prec4","Prec5","Prec6","Prec7","Prec8","Prec9","Prec10",
   	"Q1","Q2","Q3","Q4","Q5","Q6","Q7","Q8","Q9","Q10","SS1","SS2","SS3","SS4","SS5","SS6","SS7","SS8","SS9","SS10",
-    "Qinit1","Qinit2","Qinit3","Qinit4","Qinit5","Qinit6","Qinit7","Qinit8","Qinit9","Qinit10","Q-Qinit1","Q-Qinit2",
-    "Q-Qinit3","Q-Qinit4","Q-Qinit5","Q-Qinit6","Q-Qinit7","Q-Qinit8","Q-Qinit9","Q-Qinit10"]
+    "Qinit1","Qinit2","Qinit3","Qinit4","Qinit5","Qinit6","Qinit7","Qinit8","Qinit9","Qinit10"]#,"Q-Qinit1","Q-Qinit2",
+    #"Q-Qinit3","Q-Qinit4","Q-Qinit5","Q-Qinit6","Q-Qinit7","Q-Qinit8","Q-Qinit9","Q-Qinit10"]
 
   CSV.write(utfile,DataFrame(simresult2,:auto), delim = ';', header=toptitles) 
   CSV.write(utfile2,DataFrame(simresult3,:auto), delim = ';',header=toptitles2) 
