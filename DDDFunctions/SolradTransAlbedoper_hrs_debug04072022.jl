@@ -6,15 +6,7 @@ function SolradTransAlbedo(DN,Ta,taux,SWE,regn,thr,Timeresinsec,TSS,PS,phi,thi,C
 #PS is assumed in mm (used in Albedo routine to determine taux)
 
     deltaSWE = PS/1000.0
-    thrx = thr          #The time step for this calculation (in hours)
-
-    if Timeresinsec == 86400
-      thrx = 24 
-    end
-    
-    if thr == 0
-      thrx = 24 
-    end
+    thrx = (Timeresinsec == 86400) || (thr == 0) ? 24 : thr # time step for this calculation (in hours)
 
     ddphi = phi*180/pi #latitude decimal degrees
     ddthi = thi*180/pi #longitude decimal degrees
@@ -30,28 +22,24 @@ function SolradTransAlbedo(DN,Ta,taux,SWE,regn,thr,Timeresinsec,TSS,PS,phi,thi,C
     r_p = sqrt(r^2-z_s^2)   
     nevner = (R-z_s*sin(phi))/(r_p*cos(phi)) 
   
-  if nevner > -1 && nevner < 1   
+  if -1 < nevner < 1   
     t0 = 1440/(2*pi)*acos((R-z_s*sin(phi))/(r_p*cos(phi)))
     that = t0+5
     n =720-10*sin(4*pi*(DN-80)/365.25)+8*sin(2*pi*DN/365.25)
     sr =(n-that+timezone)/60        #sunrise
     ss = (n+that+timezone)/60       #sunset
-  end
-
-  if nevner <= -1 # Midnightsun
+  elseif nevner <= -1 # Midnightsun
     sr = 0.0
     ss = 24.0
-  end
-
-  if nevner >= 1 # Dark all day
+  else # Dark all day
     sr = 12.0
     ss = 12.0
   end
 
-   TTList = zeros(Float64,24)  #vector for Transmissivity
-   dingom = zeros(Float64,24)  #vector for solar zenith angle
-   zenangtid = zeros(Float64,24)
-   SW = zeros(Float64,24)  #vector for short wave radiation per hour
+   TTList = @MVector(zeros(Float64,24))  #vector for Transmissivity
+   dingom = @MVector(zeros(Float64,24))  #vector for solar zenith angle
+   zenangtid = @MVector(zeros(Float64,24))
+   SW = @MVector(zeros(Float64,24))  #vector for short wave radiation per hour
     
    S0 = (118.1*10^3)/86400                  #Solar constant kJ/m2*s. Dingman 's number'
     
@@ -79,12 +67,9 @@ function SolradTransAlbedo(DN,Ta,taux,SWE,regn,thr,Timeresinsec,TSS,PS,phi,thi,C
     end
   end
 
-  interv = Int(trunc(Timeresinsec/3600)) #how many hours?
-  if interv < 1                          # we don not go below 1 hours for these calculations
-   interv = 1
-  end   
-  Sinn = Statistics.mean(SW[(thrx-interv+1):thrx])
-  zenang = Statistics.mean(dingom[(thrx-interv+1):thrx])  
+  interv = max(trunc(Int, Timeresinsec/3600), 1) #how many hours? we don not go below 1 hours for these calculations
+  Sinn = Statistics.mean(@view(SW[(thrx-interv+1):thrx]))
+  zenang = Statistics.mean(@view(dingom[(thrx-interv+1):thrx])) 
   #zenang =Statistics.mean(zenangtid[(thrx-interv+1):thrx])   
     
 #Albedo: needs to include todays snow for calc. albedo Må ta med dagens snø for å regne ut albeo, eller smelter den bare vekk

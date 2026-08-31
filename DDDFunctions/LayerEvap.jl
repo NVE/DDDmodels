@@ -7,83 +7,76 @@
 #     Revised: 4.7.2019
 #--------------------------------------------------------------------------
 
-function LayerEvap(Layers, nodaysvector, ea_S, layerUH, NoL)
+function sumlayers(Layers, nodaysvector)
+  out = 0.0
+  @inbounds for j in 1:length(nodaysvector)
+    @simd for i in 1:nodaysvector[j]
+      out += Layers[i,j]
+    end
+  end
+  return out
+end
+
+
+function LayerEvap!(Layers, nodaysvector, ea_S, layerUH, NoL)
   
   #Layers = [1.0 2.0 0.0 0.0 0.0; 2.0 3.0 4.0 0.0 0.0; 3.0 4.0 5.0 6.0 0.0; 2.0 2.0 2.0 2.0 0.35]
   #NoL = 4
   #nodaysvector = [2 3 4 5]
   #ea_S = 4.5
   #layerUH = [0.6 0.4 0.0 0.0 0.0; 0.4 0.35 0.25 0.0 0.0; 0.35 0.25 0.25 0.15 0.0; 0.3 0.25 0.2 0.15 0.1]
+
+  (ea_S == 0) && return 0.0 # return zero evaporation if input ea_S is zero
    
-  total_layers_last = sum(Layers)
+  total_layers_last = sumlayers(Layers, nodaysvector)
   
   #Below are the states (in mm) for each saturation level
   redea = ea_S
-   #println(total_layers_last)
-   #println(sum(Layers))
 
   
-  for j in 1 : NoL                     # 1 is the top(fastest) Layer NoL is the bottom layer 
+  @inbounds for j in 1:NoL # 1 is the top(fastest) Layer NoL is the bottom layer 
 
-    if(redea > 0.0)
+        (redea <= 0) && break # exit the layers loop if there is no more water to evaporate
+        
+        # this is correct because ea is a nonintegrated with a continuum variable as opposed to discharge
+        aktMag = 0.0
+        @simd for i in 1:nodaysvector[j]
+          aktMag += Layers[i,j]
+        end
 
-      if(sum(Layers) > 0.0)             
-        newLayer = Layers[j,1:nodaysvector[j]]
-        aktMag = sum(Layers[j,1:nodaysvector[j]]) # this is correct because ea is a nonintegrated with a continuum variable as opposed to discharge
-        differ = aktMag-redea 
-        # println(aktMag)
-        # println(differ)
-        # println(newLayer)
-        # println(total_layers_last)
-        # println(sum(Layers))
-
+        (aktMag == 0) && continue # skip to next layer if it is empty
+        
+        differ = aktMag - redea 
   
-        if (differ > 0.0) # the Layer has more water than is to be evaporated > ea_S                
+        if differ > 0 # the Layer has more water than is to be evaporated > ea_S                
             ea_excess = 0.0
-            @views evapUH = redea .* layerUH[j,1:nodaysvector[j]]
-            @views newLayer = Layers[j,1:nodaysvector[j]] .- evapUH[1:nodaysvector[j]]  
-
-            tull = findall(newLayer .< 0.0)
-            if(length(tull) > 0)
-              x = tull    # locate which boxes have not enough water to evaporate
-              ea_excess = sum(evapUH[x]) # the amount which is not evaporated
-              evapUH[x] .= 0.0            # the identified boxes have zero instead of negative values
-              @views newLayer = Layers[j,1:nodaysvector[j]] .- evapUH[1:nodaysvector[j]] # updates so that everthing is positive
-            end   
-
-            if (round(aktMag - sum(newLayer) - redea + ea_excess; digits= 8) != 0.0)        
-              avvik = round(aktMag -sum(newLayer)- redea+ea_excess; digits= 8)
+            tot_layers = 0.0
+            @simd for i in 1:nodaysvector[j]
+              evapUH = redea * layerUH[i,j]
+              if Layers[i,j] < evapUH
+                  ea_excess += evapUH
+              else
+                  Layers[i,j] -= evapUH
+              end
+              tot_layers += Layers[i,j]
+            end
+            avvik = aktMag - tot_layers - redea + ea_excess
+            if abs(avvik) > 1e-8
               println("Hei, feil i fordampning", avvik)
             end  
             redea = 0.0
         else
-          newLayer = zeros(nodaysvector[j])
-          redea = redea - aktMag                    
-          if(j == NoL)           
-              redea = 0.0   # 
-          end
-          #println(newLayer)
+          Layers[1:nodaysvector[j],j] .= 0.
+          redea -= aktMag 
         end
-        #println(total_layers_last)       
-        Layers[j,1:nodaysvector[j]] .= newLayer  # updating the actual layer
-        #println(sum(Layers))
-        #println(total_layers_last)    
-      else                           # sumLayers == 0    
-        ea = 0.0
-      end                             # sumLayers ==0      
-    end                   # redea > 0.0 
-  end                          # for loop
+  end
    
-  total_layers_current = sum(Layers)
+  total_layers_current = sumlayers(Layers, nodaysvector)
   ea = total_layers_last - total_layers_current
    
-  if (ea > 0.0)
-     if (round(total_layers_last - (ea + total_layers_current); digits=8) != 0.0)
-       println("Layers ut not OK")
-     end
-  end
-#println(ea)
-#println(total_layers_last)
-#println(sum(Layers))                                   
-  return Layers, ea
+#  if (ea > 0) && abs(total_layers_last - (ea + total_layers_current)) > 1e-8 # COMMENTED OUT AS IT IS A CIRCULAR CHECK
+#      println("Layers ut not OK")
+#  end
+
+  return ea
 end

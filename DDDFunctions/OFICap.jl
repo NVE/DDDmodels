@@ -16,12 +16,12 @@
 
 function OFICap(outx, ICap)
  
-OF = 0.0
-nyoutx = outx
-    
-if(ICap < outx)             # OF due to exceedance of ICap, In addition we may have OF from below
+if ICap < outx             # OF due to exceedance of ICap, In addition we may have OF from below
   OF = outx-ICap            # what cannot be infiltrated goes to overland flow. 
-  nyoutx = outx - OF                                  
+  nyoutx = ICap 
+else
+  OF = 0.0
+  nyoutx = outx
 end
     
 return OF, nyoutx  

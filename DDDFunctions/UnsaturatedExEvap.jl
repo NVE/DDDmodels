@@ -12,7 +12,6 @@
 
 function UnsaturatedExEvap(toSoil,sm,R,D)
 
-      outx = 0.0
 #--------------------------------------------------------------------------------------------------------
 #     Estimating retention of moistureinput to sm and runoff
 #     The theory is that saturated and unsaturated sone share the same volume, and are hence the complement
@@ -21,7 +20,7 @@ function UnsaturatedExEvap(toSoil,sm,R,D)
       if(D > 0)
         rat = (sm + toSoil)/D
       else
-         rat = 1 #taking into account that D can be zero or even negative (overland flow), complete saturation.
+         rat = 1.0 #taking into account that D can be zero or even negative (overland flow), complete saturation.
       end
       
       if (rat > R)      
@@ -29,7 +28,7 @@ function UnsaturatedExEvap(toSoil,sm,R,D)
         sm = R*D      
       else
         outx = 0.0
-        sm = sm + toSoil
+        sm += toSoil
       end        
 return outx,sm
 end        

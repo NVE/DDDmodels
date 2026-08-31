@@ -9,50 +9,48 @@
 ################################################################################################
 
 
-function GrvInputDistributionICap(outx, NoL,ddistx, ddist, ICap)
-  
-defi = sum(ddistx[2:NoL])             # deficit in subsurface
+function GrvInputDistributionICap!(outx, NoL,ddistx, ddist, ICap)
+    
+if outx > 0
 
-OF   = 0.0
- if(defi < outx)                   # the deficit is less than water input (outx)
+ defi = sum(@view(ddistx[2:NoL]))             # deficit in subsurface
+
+ if defi < outx                   # the deficit is less than water input (outx)
    OF = outx-defi                  # In addition, saturation from below also gives OF
+   redoutx = defi
    #println("OFBelow=",OF)
    #println("outx_OF from below=",outx)
+ else
+   OF = 0.
+   redoutx = outx
  end
-redoutx = outx - OF                 # in case OF is null this is OK, and if OF is greater than null it is also OK since outx is always larger than OF
      
 # outx is reduced sucessively by the layers, starting from the slowest, NoL
     
-ddist = zeros(NoL)
-    
-if(outx > 0.0)
-    
-    if(OF > 0.0)
-      ddist[1] = OF/outx                   # assigning distribution of outx to overland flow layer layer 1
-    end
+   ddist[1] = OF > 0 ? OF/outx : 0.                  # assigning distribution of outx to overland flow layer layer 1
 
-   for j in reverse(2:NoL)                   # Remember NoL is the slowest layer, 1 is the fastest and already accounted for
+   remaining = 1.0 - ddist[1]
+
+   @inbounds for j in NoL:-1:2                   # Remember NoL is the slowest layer, 1 is the fastest and already accounted for
    
-    if(redoutx > 0.0)
+    if redoutx > 0
     
-       differ = ddistx[j]-redoutx
-       if (differ < 0)                #i.e the deficit i layer j is less than input, input(outx (redoutx)) > deficit       
+       if ddistx[j] < redoutx                #i.e the deficit i layer j is less than input, input(outx (redoutx)) > deficit       
          ddist[j] = ddistx[j]/outx    # divide by outx informs us what frafction of outx needed for this layer
-         redoutx = redoutx - ddistx[j] # must reduce  the input correspondingly       
+         redoutx -= ddistx[j] # must reduce  the input correspondingly       
+       else               # i.e. deficit in layer j is more than input
+         ddist[j] = remaining
+         redoutx = 0.0
        end
-       if (differ >= 0)               # i.e. deficit in layer j is more than input
-       
-           if (j < NoL) 
-             ddist[j] = 1.0 - sum(ddist[(j+1):NoL])-ddist[1]  #ddist[1] is already assigned
-           end
-           if (j == NoL)
-             ddist[j] = 1.0 - ddist[1]                              #ddist[1] is already assigned
-           end
-           redoutx = 0.0
-       end  # if differ >= 0    
-    end # if redoutx > 0.0
-   end # for j in reverse(2:NoL)
+    else
+        ddist[2:j] .= 0.
+        break
+    end
+    remaining -= ddist[j]
+   end
    #println("outx_ordinary=",outx)
+else
+  ddist .= 0.
 end #if outx >0.0    
 
 #if(ddist[NoL] > 0.0)
@@ -62,6 +60,5 @@ end #if outx >0.0
 
 #println(ddist*outx)
 #println(sum(ddist))
-return ddist  
 
 end #end of func

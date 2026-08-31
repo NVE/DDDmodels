@@ -11,7 +11,7 @@ function SingleNormalUH(Lv,Timeresinsec,meanD,stdD,maxD)
 #Timeresinsec: scalar Integer for example = 86400
 #LV: scalar float, NB enters as an array float in other subroutines
     
-nodaysLake = Int(trunc(maxD/Lv/Timeresinsec)+1)
+nodaysLake = trunc(Int, maxD/Lv/Timeresinsec) + 1
 if (nodaysLake > 1)     
   timeres = [0: 1: (nodaysLake-1);]                      # temporal resolution on riverrouting hydrogram, gives a sequance of number from 0 to 
   midLakescl = meanD/Lv/Timeresinsec #Actually mean response time (MRT) in days

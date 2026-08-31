@@ -3,17 +3,15 @@ function SmeltEB(DN,PR,PS,Ta,SWE,Timeresinsec,thr,u,taux,Pa,snittT, phi, thi)
 #import Statistics
 #using Distributions 
     
-SWE = SWE/1000.0           #[m]
+SWE /= 1000.0           #[m]
 regn = PR + PS
 
 Cl, RH = CloudCover(regn, Timeresinsec) # Gives a vector(Cl, Wa)
 
 Tss = TssDewpoint(Ta,RH) # 
 
-if(Tss > 0.0)
-  if(SWE > 0.0) 
-     Tss = 0.0
-  end
+if (Tss > 0.0) && (SWE > 0.0) 
+  Tss = 0.0
 end
 
 #ShortWave
@@ -33,18 +31,13 @@ GH, PH, CC = GroundPrecCC(SWE,Ta,PR,Timeresinsec,snittT,PS)
     rhow = 1000 #[kgm^-3]
 lam = 334 #kJkg^-1 latent heat of fusion    se Dingman p.190
 
-if (CC == 0.0) 
+if CC == 0
    melt = 1000* (SWrad+LWradA-LWradT+SH+LE+GH+PH+CC)/(lam*rhow) #potential melt in mm
-end
-                
-if (CC > 0.0) 
+elseif CC > 0
    melt = 0.0
 end
 
-if(snittT < 0.0)
-   melt = 0.0
-end
-if (SWE == 0.0)
+if (snittT < 0.0) || (SWE == 0.0)
    melt = 0.0 
 end
 

@@ -10,7 +10,7 @@ function SingleUH(k,Timeresinsec,meanD,maxD, nugget)
 #Timeresinsec: scalar Integer = 86400
 #k: scalar float, NB enters as an array float in other subroutines
     
-ant = Int(trunc(maxD/(k*Timeresinsec))) + 1
+ant = trunc(Int, maxD/(k*Timeresinsec)) + 1
 UHvec = Vector{Float64}(undef, ant)
 
 escl =  (meanD/k)/Timeresinsec 
@@ -18,7 +18,7 @@ Uhexp = Exponential(escl)
 new = (1 - nugget)*cdf(Uhexp, 1) # 1/escl is parameter of distribution, escl is the mean of timesteps needed to drain.
 UHvec[1] = nugget + new
 if(ant > 1)
-   for i in 2:ant
+   @inbounds for i in 2:ant
       old = new
       new = (1 - nugget)*cdf(Uhexp, i)
       UHvec[i] = new - old #Makes exponential pdf.  

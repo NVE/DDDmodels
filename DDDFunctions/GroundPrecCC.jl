@@ -12,8 +12,8 @@ function GroundPrecCC(SWE,Ta,Rp,Timeresinsec,snittT,PS)
 # PS = 2.0
 # SWE = 2.00
     
- GH = 173/86400         #kj/secund
- GH = GH*Timeresinsec   # desired resolution
+ GH = 173.0/86400.0         #kj/secund
+ GH *= Timeresinsec   # desired resolution
     
 #precipitation heat
 rhow = 1000         #kg/m3

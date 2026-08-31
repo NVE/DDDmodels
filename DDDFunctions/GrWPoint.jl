@@ -15,23 +15,15 @@ function GrWPoint(nodaysvector, Tpkt, NoL, Areas, innLayers, totarea, distvec, d
 # delta_d is how wide are each box (for ecah celerity)
 # distvec the distance away from the RN we want estimated
 
-  Layersmm = zeros(NoL, nodaysvector[NoL])
-  
-  for i in 1: NoL
-    for j in 1: nodaysvector[i]   
-	   Layersmm[i,j] = innLayers[i,j]*(totarea/Areas[i,j])
-    end        
-  end
-  
 ant = length(distvec)       # number of groundwater bore hole locations
 grw = zeros(ant)            # vector for storing groundwater values for the current Layer 
 
-for i in 1:(ant-1)  # to be certain we do not go beyond the matrix                 
+@inbounds for i in 1:(ant-1)  # to be certain we do not go beyond the matrix
   tall = distvec[i]
-  grw[i] = 0.0
-  for j in 1: NoL
-   grw[i] = grw[i] + round(Layersmm[j,(Int(trunc(tall/delta_d[j]))+1)],digits=3) # Integer division.  Sums up Layer_mm for each layer
-   #println("grw: ",grw[i])
+  @simd for j in 1:NoL
+   h = trunc(Int, tall/delta_d[j]) + 1
+   layersmm = innLayers[h,j] * (totarea/Areas[h,j])
+   grw[i] += round(layersmm, digits=3) # Sums up Layer_mm for each layer
   end
 end
              

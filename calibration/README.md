@@ -7,6 +7,13 @@ Julia version and libraries are defined in `Project.toml` and `Manifest.toml`:
 See [Pkg documentation](https://pkgdocs.julialang.org/v1/environments/#Using-someone-else's-project)
 for how to recreate the Julia environment to calibrate DDD.
 
+To be able to run DDD in Jupyter notebooks using the project environment,
+install a kernel pointing to the project folder (i.e. the folder containing `Project.toml`
+and `Manifest.toml`, e.g. `/home/user/DDDmodels`) in the following way:
+
+- start Julia using the project environment: `julia --project /home/user/DDDmodels`
+- install the kernel giving it a name (e.g. `Julia DDD`): `installkernel("Julia DDD", "--project=/home/user/DDDmodels")`
+
 
 ## 2. How to set up and run a calibration
 
@@ -63,19 +70,45 @@ The presence of the empty file `root_output/<CATCHMENT>/done` means that calibra
 until the stopping criterion for that catchment: If the calibration script is re-run, this
 catchment will be skipped.
 
-## 5. Possible improvements
 
-0. Diagnostic plots for each catchment: time series, parameters, etc.
-1. Redefine DDDAll... as made up of 2 functions: f1 loading PTQ time series, and f2 doing the rest
-   taking PTQ series among its input. To calibrate a catchment, f1 would be called only once and
-   f2 would be iterated over by the search algorithm.
-2. Use TypedTables instead of DataFrames to read input from CSV files and to pass data to the model,
-   to ensure type stability (types of DataFrame columns are unknown a priori to the compiler)
-3. Specify which parameters should be calibrated and which have a fixed value in settings,
-   instead of using collapsed ranges, to reduce the formal number of parameters.
-4. Check that functions are type-stable to avoid performance losses.
-5. Profile DDD code to look for performance bottlenecks.
-6. Test if using views instead of slices improves performance by reducing memory allocations.
-7. Sensitivity analysis (e.g. [GlobalSensitivity.jl](https://docs.sciml.ai/GlobalSensitivity/stable/))
-8. Use julia 1.12 and [workspaces](https://pkgdocs.julialang.org/dev/creating-packages/#Test-specific-dependencies)
+## 5. Notes
+
+To fix the format of MNA4 PTQ-files in `/hdata/fou/flom/data/met_nordic_analysis_v4`:
+
+1. create the subfolder `semicolon_separated`, copy all ptq files there and run `sed -i 's/[[:space:]]\+/;/g' *.ptq`
+2. add missing column with minutes (5th) with `sed -i 's/^\([^;]*;[^;]*;[^;]*;[^;]*\);/\1;0;/' *.ptq`
+
+
+## 6. Possible improvements
+
+- Use StaticArrays for unmutable arrays whose size is known at compile time.
+- Calibration logging of all candidate solutions by appending vectors to a thread-safe data structure
+  inside the wrapper, so that DDD does not write any output file.
+- Check that functions are type-stable to avoid performance losses.
+- Reduce the formal number of parameters to be calibrated based on provided bounds:
+  detect fixed parameters -> fixed_values, fixed_positions -> makeEvaluator -> ...
+- Sensitivity analysis (e.g. [GlobalSensitivity.jl](https://docs.sciml.ai/GlobalSensitivity/stable/))
+- Use [workspaces](https://pkgdocs.julialang.org/dev/creating-packages/#Test-specific-dependencies)
    to define test- and calibration-specific dependencies.
+
+## 7. Questions
+
+- NewSnowDensityEB.jl: conversion to Fahrenheit (overwriting) propagates to DensityAge.jl via NewSnowSDEB.jl:
+  is it intentional?
+- `tempstart` is not necessary to run the model as it can be replaced by `temperature[:,(i-len+1):i]` when
+  computing `skintempsnow`. Is it needed to restart the model from a state file? Can it be avoided by loading
+  temperature time series further back in time?
+- LayerEvap.jl: reset evapUH to 0 where evapUH >= Layers. Why not Layers set to 0?
+  Why `if sum(Layers) > 0` on each layer's iteration?
+- The following code block in the main function breaks reproducibility between calibration and simulation
+  runs, in addition to removing snow from the water balance. It is now temporarily commented out, but a
+  stable solution is needed:
+  ```julia
+  if (spd[idim,Lst] > 10000)
+	    if(kal == 1)
+          spd[idim,Lst]  = 8000.0
+	        skorr= 0.9*skorr
+          !silent && println("Skorr is reduced, you build snowtowers = trend in SWE")
+	    end 
+  end
+  ```

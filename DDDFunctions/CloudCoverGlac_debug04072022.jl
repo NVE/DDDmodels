@@ -1,5 +1,3 @@
- 
-
 function CloudCover(regn,Timeresinsec)
  
  grense = 0.98 
@@ -10,16 +8,12 @@ function CloudCover(regn,Timeresinsec)
  if regn > pgrense # 1 for 1 time funker bra, 3 for 3 timer?
    Cl = 1.0
    Wa = 1.0
- end      
-    
- if (regn > pgrense2 && regn <=pgrense)
-   Cl = rand(Uniform(grense,0.99))
-   Wa = (Cl+1.667)/2.667
- end
-    
- if (regn <= pgrense2)
-   Cl = rand(Uniform(0.01,grense)) 
-   Wa = (Cl+1.667)/2.667
+ elseif regn > pgrense2
+   Cl = grense + rand() * (0.99 - grense)
+   Wa = min((Cl+1.667)/2.667, 1.0)
+ else
+   Cl = 0.01 + rand() * (grense - 0.01)
+   Wa = min((Cl+1.667)/2.667, 1.0)
  end       
 
  #if (Cl >= grense)
@@ -34,9 +28,6 @@ function CloudCover(regn,Timeresinsec)
  #   Wa = (Cl+1.167)/2.667  # parametrization of Relative Humidity from Herrero and Polo(HESS, 2012)
  #end
 
- if (Wa > 1.0)
-    Wa = 1.0# 0.8349  #1.0
- end
  #println(Cl, " ", Wa)  
 
  return Cl, Wa

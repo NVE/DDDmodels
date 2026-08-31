@@ -16,17 +16,14 @@
 
 function UnsaturatedEvapEB(toSoil, eatemp, sm, M, D, ET)
      
-      outx = 0.0
-      ea = 0.0    # actual evapotranspiration drawn from sm
-      eaS = 0.0   # actual evapotranspiration to be drawn from S (Layers)
 
 #-------------------------------------------------------------------------
 #  Actual evapotranspiration
 #-------------------------------------------------------------------------
-      if (eatemp > -10.0) #Function of temp, areal mean, see Sælthun 1996, p. 9
+      if eatemp > -10 #Function of temp, areal mean, see Sælthun 1996, p. 9
         #ET is potential evapotranspiration which becomes actual due to deficit, Priestly Taylor
         saturation = (M-D+sm+toSoil)/M
-        ea = min(ET, ET*(1-exp(-4*saturation)))
+        ea = min(ET, ET*(1-exp(-4*saturation))) # actual evapotranspiration drawn from sm
       else      
         ea = 0.0
       end   
@@ -34,12 +31,14 @@ function UnsaturatedEvapEB(toSoil, eatemp, sm, M, D, ET)
 #------------------------------------------------------------------------
 #     Updating sm caused by evapotranspiration
 #------------------------------------------------------------------------
-      sm = sm-ea
-      
-      if (sm < 0) # prevents breaching the water balance, must adjust ea      
-        ea = ea + sm #sm is negative
+      sm -= ea
+
+      if sm >= 0
+        eaS = 0.0   # actual evapotranspiration to be drawn from S (Layers)
+      else # prevents breaching the water balance, must adjust ea      
+        ea += sm #sm is negative
         eaS = -sm    #sm is negative and eaS (evapotranspiration to be drawn from S) becomes positive
-        sm = 0
+        sm = 0.
       end
       
 return sm, ea, eaS

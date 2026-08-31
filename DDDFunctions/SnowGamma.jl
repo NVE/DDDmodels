@@ -65,12 +65,12 @@ function SnowGamma(PRX,PSX,MWX,scax,spdx,wcdx,prox,nsnox,alfax,nyx,alfa0x,ny0x,a
     
     #Updating the water content in snowpack 
     if (xmw < 0.0)               # Refreezing liquid water in snow, the sum of spt+wct and SCA will not change
-      if ((-1*xmw) < wct)        
-           wct = wct + xmw       # update wct, reduces water content in snow, NB xmv is negative
-           spt = spt - xmw       # update, increases spt, reduces wct 
+      if -xmw < wct
+           wct += xmw       # update wct, reduces water content in snow, NB xmv is negative
+           spt -= xmw       # update, increases spt, reduces wct 
       end
-      if ((-1*xmw) >= wct)
-        spt = spt + wct          # update spt, increases spt and wct is set to 0
+      if -xmw >= wct
+        spt += wct          # update spt, increases spt and wct is set to 0
         wct = 0.0
       end
     end          
@@ -163,36 +163,29 @@ function SnowGamma(PRX,PSX,MWX,scax,spdx,wcdx,prox,nsnox,alfax,nyx,alfa0x,ny0x,a
         nya = nydyn                                        # accumulation ny teste med nn*nydyn
    
         antall = Int(round(nya/alfaa) +1)                  #  How far we need to go (in mm) for the pfd.
-        diff = zeros(Float64,antall)  
-        a = zeros(Float64,antall) 
-        s = zeros(Float64,antall)    
-        xkrit = zeros(Int,2)
+        xkrit = 1
                                        
          smelt = Gamma(nys,1/alfas)                                        
          acc = Gamma(nya,1/alfaa) # Note that R uses alfa whereas Julia uses 1/alfa
          
+       # find crossing
        for i in 1:antall
-        s[i] = pdf(smelt,i) # PDF; wants the crossing point bewtween dist (s=melt)
-        a[i] = pdf(acc,i)   # PDF; wants the crossing point bewtween dist (a=accumulation)
+        s = pdf(smelt,i) # PDF; wants the crossing point bewtween dist (s=melt)
+        a = pdf(acc,i)   # PDF; wants the crossing point bewtween dist (a=accumulation)
+        if (a - s) > 0
+            xkrit = i
+            break # gets the position of the first crossing and stops
+        end
        end        
-        diff[1:antall] = a[1:antall]-s[1:antall]
-                                
-        #find crossing
-        krysspos = findall(diff .> 0)
-        if(length(krysspos) >= 1)        
-          xkrit[2] = Int(krysspos[1])
-        else
-          xkrit[2] = 1
-        end
                         
-        if(xkrit[2]==0)
-          println("No crossing point!") 
-          sleep(2)                     #pause for 2 seconds
-        end
+#        if(xkrit[2]==0) # COMMENTED OUT AS xkrit CANNOT BE 0
+#          println("No crossing point!") 
+#          sleep(2)                     #pause for 2 seconds
+#        end
 
 #start exact method 
-        pa = cdf(acc,xkrit[2])    # CDF; wants the area
-        ps = cdf(smelt, xkrit[2]) # CDF; wants the area
+        pa = cdf(acc, xkrit)    # CDF; wants the area
+        ps = cdf(smelt, xkrit) # CDF; wants the area
         redsca = round((pa + (1-ps)),digits = 4)
 
 # end exact method
@@ -205,18 +198,17 @@ function SnowGamma(PRX,PSX,MWX,scax,spdx,wcdx,prox,nsnox,alfax,nyx,alfa0x,ny0x,a
                        
         newsca = 1-redsca                          # reduction from previous melting; actual coverage is ppa <- ppa *newsca  
         spt = (1/(1-redsca))*((nn-u)*(ny0x/alfa0x))# New CV mean; mean for snowcovered area
-        ppa = ppaold*newsca                        # updating actual SCA. NOTE that ppa is the coverage for the elevation zone
        
         if(spt <= 0)
-             ppa = 0.0 # 
+            ppa = 0.0
+        else
+            ppa = ppaold*newsca                        # updating actual SCA. NOTE that ppa is the coverage for the elevation zone
         end
         wcmax = spt*prox # current max level of free water in snow
                                                                 
         if((xmw + PRX) >= wcmax) 
              wct = wcmax 
-        end
-                                                                
-        if((xmw + PRX) <  wcmax) 
+        else
              wct = xmw +PRX                                           
         end
        # NOTE it might be a problem that the potential melting XMW can never be actual, even for the areas with snow
@@ -263,7 +255,7 @@ end #if setning som er if(sca*spd < 1.0 && PSX == 0.0)
 if(nn <= 0.0) # 
     nydyn = ny0x
 else
-   nydyn = nydyn/nn # parameter exits as not for units
+   nydyn /= nn # parameter exits as not for units
 end
 #print(paste("ut av snogamma 2:nydyn=",nydyn, "alfadyn:",alfadyn,"nn=", nn))
 #variabler som skal overføres

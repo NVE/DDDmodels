@@ -33,7 +33,7 @@ r2 = min(r1^10,1)
 r3 = 0.03
 d_tau =  ((r1+r2+r3)/tau0)*Timeresinsec
 
-taux = taux + d_tau
+taux += d_tau
 F_age = taux/(1+taux)
 
 alfa_vd = (1-C_v*F_age)*alfa_v0
